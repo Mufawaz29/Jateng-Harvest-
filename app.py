@@ -223,7 +223,14 @@ def save_log(kabupaten, kecamatan, luas_tanam, hasil_prediksi):
         conn = st.connection("gsheets", type=GSheetsConnection)
         
         # Membaca data yang sudah ada di worksheet "Sheet1" dengan parameter URL eksplisit
-        existing_df = conn.read(spreadsheet=SPREADSHEET_URL, worksheet="Sheet1", ttl=0)
+        try:
+            existing_df = conn.read(spreadsheet=SPREADSHEET_URL, worksheet="Sheet1", ttl=0)
+        except Exception:
+            existing_df = pd.DataFrame()
+            
+        # Jika sheet masih kosong atau belum memiliki header yang tepat, inisialisasi kolom standar
+        if existing_df.empty or "Timestamp" not in existing_df.columns:
+            existing_df = pd.DataFrame(columns=["Timestamp", "Kabupaten", "Kecamatan", "Luas Tanam", "Hasil Prediksi"])
         
         # Membangun baris data baru
         new_row = pd.DataFrame([{
