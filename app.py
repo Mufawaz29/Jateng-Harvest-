@@ -11,6 +11,7 @@ from datetime import datetime
 import urllib.request
 import urllib.parse
 import json
+import base64
 
 # ==========================================
 # PAGE CONFIGURATION & THEME STYLE
@@ -22,26 +23,47 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Load background image dynamically
+bg_img_path = os.path.join(os.path.dirname(__file__), "image.png")
+bg_img_css = ""
+if os.path.exists(bg_img_path):
+    with open(bg_img_path, "rb") as f:
+        encoded_bg = base64.b64encode(f.read()).decode()
+    bg_img_css = f"""
+    /* Background image with living agricultural warm glassmorphic overlay */
+    .stApp {{
+        background: linear-gradient(rgba(10, 25, 15, 0.82), rgba(15, 23, 42, 0.94)), url("data:image/png;base64,{encoded_bg}") !important;
+        background-size: cover !important;
+        background-position: center center !important;
+        background-attachment: fixed !important;
+        color: #f1f5f9;
+    }}
+    """
+else:
+    bg_img_css = """
+    .stApp {{
+        background: radial-gradient(circle at 50% 10%, #1e293b 0%, #0f172a 70%);
+        color: #f1f5f9;
+    }}
+    """
+
 # Custom premium styling with Glassmorphism, tailored animations, and high-end colors
-custom_css = """
+custom_css = f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
 
-    html, body, [class*="css"] {
+    html, body, [class*="css"] {{
         font-family: 'Inter', sans-serif;
-    }
+    }}
     
-    h1, h2, h3, h4, h5, h6 {
+    h1, h2, h3, h4, h5, h6 {{
         font-family: 'Outfit', sans-serif;
         font-weight: 700;
         color: #ffffff;
-    }
+    }}
 
-    /* Background and slate gradient container */
-    .stApp {
-        background: radial-gradient(circle at 50% 10%, #1e293b 0%, #0f172a 70%);
-        color: #f1f5f9;
-    }
+    {bg_img_css}
+
 
     /* Sidebar Glassmorphism styling */
     [data-testid="stSidebar"] {
