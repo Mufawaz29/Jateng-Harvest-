@@ -135,6 +135,11 @@ custom_css = """
 """
 st.markdown(custom_css, unsafe_allow_html=True)
 
+from fpdf import FPDF
+import io
+import csv
+import math
+
 # Month list and mapping constants
 MONTHS_ID = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
 MONTH_MAP_ID_TO_NUM = {name: i+1 for i, name in enumerate(MONTHS_ID)}
@@ -175,6 +180,91 @@ df_hist = load_historical_data()
 
 # MAE derived from model validation evaluation
 MODEL_MAE = 63.4
+
+# ==========================================
+# TELEMETRI, FEEDBACK, & KARTU PDF (TUGAS 1-3)
+# ==========================================
+TELEMETRY_FILE = "telemetri_penggunaan.csv"
+FEEDBACK_FILE = "log_feedback_petani.csv"
+
+def log_anonymous_activity(kecamatan, kabupaten, luas_tanam, asumsi_prod, estimasi_ton):
+    """Tugas 2: Anonymous Activity Logger untuk Developer Monitoring (Tanpa Identitas Pribadi)."""
+    try:
+        file_exists = os.path.exists(TELEMETRY_FILE)
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(TELEMETRY_FILE, mode='a', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                writer.writerow(["Timestamp", "Kabupaten", "Kecamatan", "Luas_Tanam_Ha", "Asumsi_Prod_TonHa", "Estimasi_Total_Ton"])
+            writer.writerow([timestamp, kabupaten, kecamatan, round(luas_tanam, 2), round(asumsi_prod, 2), round(estimasi_ton, 2)])
+    except Exception:
+        pass
+
+def log_user_feedback(kecamatan, kabupaten, bulan_tanam, luas_tanam, akurat):
+    """Tugas 3: Modul Feedback Inklusif untuk Validasi Model Masa Depan."""
+    try:
+        file_exists = os.path.exists(FEEDBACK_FILE)
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        with open(FEEDBACK_FILE, mode='a', newline='', encoding='utf-8') as f:
+            writer = csv.writer(f)
+            if not file_exists:
+                writer.writerow(["Timestamp", "Kabupaten", "Kecamatan", "Bulan_Tanam", "Luas_Tanam_Ha", "Sesuai"])
+            writer.writerow([timestamp, kabupaten, kecamatan, bulan_tanam, round(luas_tanam, 2), "Ya" if akurat else "Tidak"])
+    except Exception:
+        pass
+
+class HarvestPDF(FPDF):
+    def header(self):
+        self.set_font("helvetica", "B", 16)
+        self.cell(0, 10, "KARTU PERSIAPAN LOGISTIK PANEN", ln=True, align="C")
+        self.set_font("helvetica", "", 10)
+        self.cell(0, 6, "Sistem Informasi Manajemen Logistik Pertanian Jawa Tengah", ln=True, align="C")
+        self.line(10, 28, 200, 28)
+        self.ln(10)
+
+    def footer(self):
+        self.set_y(-15)
+        self.set_font("helvetica", "I", 8)
+        self.cell(0, 10, f"Halaman {self.page_no()} | Dokumen dicetak otomatis (Tanpa Login & Privasi Terlindungi)", align="C")
+
+def generate_pdf_report(kabupaten, kecamatan, bulan_tanam, luas_tanam, as_prod, pred_results):
+    """Tugas 1: Implementasi Fitur Cetak Laporan PDF (User Empowerment)."""
+    pdf = HarvestPDF()
+    pdf.add_page()
+    
+    # Rincian Input
+    pdf.set_font("helvetica", "B", 12)
+    pdf.cell(0, 8, "Rincian Lokasi & Input Lahan:", ln=True)
+    pdf.set_font("helvetica", "", 11)
+    pdf.cell(0, 6, f"Kabupaten: {kabupaten} | Kecamatan: {kecamatan}", ln=True)
+    pdf.cell(0, 6, f"Bulan Tanam Terakhir: {bulan_tanam} | Luas Tanam: {luas_tanam:,.1f} Ha", ln=True)
+    pdf.cell(0, 6, f"Asumsi Produktivitas: {as_prod:.1f} Ton/Ha", ln=True)
+    pdf.ln(8)
+    
+    # Hasil Perhitungan & Rencana Logistik
+    pdf.set_font("helvetica", "B", 12)
+    pdf.cell(0, 8, "Rencana Preskriptif Logistik 3 Bulan ke Depan:", ln=True)
+    pdf.ln(4)
+    
+    for idx, pred in enumerate(pred_results):
+        pdf.set_font("helvetica", "B", 11)
+        pdf.cell(0, 6, f"Bulan Ke-{idx+1}: {pred['Bulan_Nama']} (Estimasi Panen: {pred['Prediksi_Ha']:,.1f} Ha)", ln=True)
+        
+        # Hitung logistik
+        ha = pred['Prediksi_Ha']
+        tons = ha * as_prod
+        sacks = math.ceil(tons * 20)
+        harvesters = math.ceil(ha / 15.0)
+        drying = tons * 12
+        storage = tons * 1.8
+        
+        pdf.set_font("helvetica", "", 10)
+        pdf.cell(0, 5, f" - Segera pesan {sacks:,} lembar karung gabah (kapasitas 50 kg).", ln=True)
+        pdf.cell(0, 5, f" - Siapkan {harvesters} unit combine harvester (untuk panen raya dalam 10 hari).", ln=True)
+        pdf.cell(0, 5, f" - Luas lantai jemur minimal: {drying:,.0f} m² | Volume gudang: {storage:,.0f} m³.", ln=True)
+        pdf.ln(6)
+        
+    return bytes(pdf.output())
 
 # ==========================================
 # LOGICAL HELPER FUNCTIONS (AUTOMATION CORE)
@@ -433,11 +523,12 @@ if uploaded_file is not None:
 # Tab 3: Simontadi 2026 Batch Predictor (Digital Integration)
 # Tab 4: Price & Selling Education (Edukasi Harga)
 
-tab_predict, tab_batch, tab_summary, tab_education = st.tabs([
+tab_predict, tab_batch, tab_summary, tab_education, tab_monitoring = st.tabs([
     "🔮 Estimasi & Instruksi Pasca-Panen",
     "📊 Estimasi Massal Laporan Simontadi 2026",
     "📈 Ringkasan Data Tanam Jateng 2025",
-    "💡 Edukasi Tren Harga & Waktu Jual"
+    "💡 Edukasi Tren Harga & Waktu Jual",
+    "🛠️ Developer Monitoring (Telemetri)"
 ])
 
 # ------------------------------------------
@@ -465,6 +556,8 @@ with tab_predict:
     # Run predictions automatically or when button is clicked
     if True: # Always show current selected as default, button adds highlight
         predictions = get_3_month_predictions(df_hist, selected_kab, selected_kec, selected_month, manual_luas_tanam)
+        total_est_ton = sum([p['Prediksi_Ha'] for p in predictions]) * productivity_rate
+        log_anonymous_activity(selected_kec, selected_kab, manual_luas_tanam, productivity_rate, total_est_ton)
         
         # Display Prediction Cards
         st.markdown("<h4 style='margin-top:25px; margin-bottom:15px;'>🔮 Estimasi Luas Panen 3 Bulan ke Depan</h4>", unsafe_allow_html=True)
@@ -620,6 +713,39 @@ with tab_predict:
                         """,
                         unsafe_allow_html=True
                     )
+
+        # ==========================================
+        # TUGAS 1 & TUGAS 3: CETAK PDF & MODUL FEEDBACK
+        # ==========================================
+        st.markdown("<hr style='border: 1px solid rgba(255,255,255,0.05); margin-top:35px; margin-bottom:20px;'>", unsafe_allow_html=True)
+        
+        col_pdf, col_feed = st.columns([1, 1])
+        
+        with col_pdf:
+            st.markdown("#### 📥 Unduh Kartu Persiapan Logistik")
+            st.caption("Cetak rangkuman instruksi fisik untuk dibawa ke kelompok tani / penyedia alat (Alsintan). Mobile-friendly!")
+            pdf_data = generate_pdf_report(selected_kab, selected_kec, selected_month, manual_luas_tanam, productivity_rate, predictions)
+            st.download_button(
+                label="📄 Cetak Laporan & Instruksi (PDF)",
+                data=pdf_data,
+                file_name=f"Kartu_Persiapan_Panen_{selected_kec}_{selected_kab}.pdf",
+                mime="application/pdf",
+                key="btn_pdf_download"
+            )
+            
+        with col_feed:
+            st.markdown("#### 💬 Masukan & Validasi Petani")
+            st.caption("Apakah hasil estimasi ini sesuai dengan kondisi lahan Anda? (Data anonim untuk validasi masa depan)")
+            
+            feed_col1, feed_col2 = st.columns(2)
+            with feed_col1:
+                if st.button("✔️ Ya, Sesuai", key="btn_feed_yes", use_container_width=True):
+                    log_user_feedback(selected_kec, selected_kab, selected_month, manual_luas_tanam, True)
+                    st.success("Terima kasih atas masukan Anda!")
+            with feed_col2:
+                if st.button("❌ Tidak Sesuai", key="btn_feed_no", use_container_width=True):
+                    log_user_feedback(selected_kec, selected_kab, selected_month, manual_luas_tanam, False)
+                    st.success("Terima kasih! Log tersimpan untuk peningkatan sistem.")
 
 # ------------------------------------------
 # TAB 2: BATCH PREDICTION SIMONTADI 2026
@@ -921,6 +1047,51 @@ with tab_education:
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         st.plotly_chart(fig_edu, use_container_width=True)
+
+# ------------------------------------------
+# TAB 5: DEVELOPER MONITORING (TELEMETRI)
+# ------------------------------------------
+with tab_monitoring:
+    st.markdown("### 🛠️ Developer Monitoring & Telemetri Penggunaan")
+    st.markdown(
+        """
+        Halaman pemantauan internal bagi developer untuk memonitor aktivitas penggunaan aplikasi secara *real-time* 
+        berdasarkan sebaran wilayah aktif (Kecamatan/Kabupaten) dengan mematuhi prinsip **Privacy by Design** (tanpa identitas pribadi).
+        """
+    )
+    
+    col_t1, col_t2 = st.columns(2)
+    
+    with col_t1:
+        st.markdown("#### 📋 Log Aktivitas Penggunaan (Anonymous Logger)")
+        if os.path.exists(TELEMETRY_FILE):
+            df_tele = pd.read_csv(TELEMETRY_FILE)
+            st.dataframe(df_tele.tail(15), use_container_width=True)
+            
+            # Download telemetry
+            csv_bytes_t = df_tele.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Unduh Log Telemetri Penggunaan (CSV)",
+                data=csv_bytes_t,
+                file_name="telemetri_penggunaan.csv",
+                mime="text/csv",
+                key="btn_tele_down"
+            )
+        else:
+            st.info("Log aktivitas masih kosong. Lakukan simulasi perhitungan pada tab pertama untuk mencatat telemetri.")
+            
+    with col_t2:
+        st.markdown("#### 💬 Rekapitulasi Masukan Pengguna (Feedback)")
+        if os.path.exists(FEEDBACK_FILE):
+            df_feed = pd.read_csv(FEEDBACK_FILE)
+            st.dataframe(df_feed.tail(15), use_container_width=True)
+            
+            # Summary count
+            sesuai_count = len(df_feed[df_feed['Sesuai'] == 'Ya'])
+            tidak_count = len(df_feed[df_feed['Sesuai'] == 'Tidak'])
+            st.markdown(f"**Total Sesuai:** {sesuai_count} | **Total Tidak Sesuai:** {tidak_count}")
+        else:
+            st.info("Log masukan pengguna masih kosong.")
 
 # Footer credit
 st.markdown("<hr style='border: 1px solid rgba(255,255,255,0.05); margin-top:40px;'>", unsafe_allow_html=True)
