@@ -6,6 +6,11 @@ import plotly.express as px
 import plotly.graph_objects as go
 import os
 import math
+import csv
+from datetime import datetime
+import urllib.request
+import urllib.parse
+import json
 
 # ==========================================
 # PAGE CONFIGURATION & THEME STYLE
@@ -186,9 +191,11 @@ MODEL_MAE = 63.4
 # ==========================================
 TELEMETRY_FILE = "telemetri_penggunaan.csv"
 FEEDBACK_FILE = "log_feedback_petani.csv"
+GOOGLE_SHEETS_API_URL = "https://script.google.com/macros/s/15WhpXDecY5QJQDFEu_Uh4fsSLDr3fA7cinSTlLAu8f8/exec"
 
 def log_anonymous_activity(kecamatan, kabupaten, luas_tanam, asumsi_prod, estimasi_ton):
-    """Tugas 2: Anonymous Activity Logger untuk Developer Monitoring (Tanpa Identitas Pribadi)."""
+    """Tugas 2 & Fitur 5: Anonymous Activity Logger & Telemetry ke Google Sheets (Tanpa Identitas Pribadi)."""
+    # 1. Simpan ke CSV lokal
     try:
         file_exists = os.path.exists(TELEMETRY_FILE)
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -199,6 +206,21 @@ def log_anonymous_activity(kecamatan, kabupaten, luas_tanam, asumsi_prod, estima
             writer.writerow([timestamp, kabupaten, kecamatan, round(luas_tanam, 2), round(asumsi_prod, 2), round(estimasi_ton, 2)])
     except Exception:
         pass
+        
+    # 2. Kirim ke Google Sheets API secara asinkron
+    try:
+        payload = {
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "kabupaten": kabupaten,
+            "kecamatan": kecamatan,
+            "luas_tanam": round(luas_tanam, 2),
+            "estimasi_ton": round(estimasi_ton, 2)
+        }
+        data = urllib.parse.urlencode(payload).encode('utf-8')
+        req = urllib.request.Request(GOOGLE_SHEETS_API_URL, data=data)
+        urllib.request.urlopen(req, timeout=3)
+    except Exception:
+        pass # fail silently to avoid blocking user interaction
 
 def log_user_feedback(kecamatan, kabupaten, bulan_tanam, luas_tanam, akurat):
     """Tugas 3: Modul Feedback Inklusif untuk Validasi Model Masa Depan."""
@@ -414,43 +436,6 @@ st.sidebar.markdown(
 
 st.sidebar.markdown("<hr style='border: 1px solid rgba(255,255,255,0.05); margin-top:0px;'>", unsafe_allow_html=True)
 
-# Unique values for responsive location dropdowns
-if not df_hist.empty:
-    list_kabupaten = sorted(df_hist['Kabupaten'].unique())
-else:
-    list_kabupaten = sorted(le_kab.classes_)
-
-selected_kab = st.sidebar.selectbox("Pilih Kabupaten", list_kabupaten)
-
-# Responsive Kecamatan filtering
-if not df_hist.empty:
-    list_kecamatan = sorted(df_hist[df_hist['Kabupaten'] == selected_kab]['Kecamatan'].unique())
-else:
-    list_kecamatan = [k for k in sorted(le_kec.classes_) if k in df_hist['Kecamatan'].values] # safety check
-
-selected_kec = st.sidebar.selectbox("Pilih Kecamatan", list_kecamatan)
-
-st.sidebar.markdown("### 🚜 Kondisi Lahan Terkini")
-selected_month = st.sidebar.selectbox("Pilih Bulan Tanam Terakhir", MONTHS_ID, index=4) # Default Mei
-
-# Calculate historical baseline as an intuitive default value for Luas Tanam input
-default_luas_tanam = 100.0
-if not df_hist.empty:
-    baseline = get_historical_luas_tanam(df_hist, selected_kab, selected_kec, MONTH_MAP_ID_TO_NUM[selected_month])
-    if baseline > 0:
-        default_luas_tanam = round(baseline, 2)
-
-manual_luas_tanam = st.sidebar.number_input(
-    "Luas Tanam Saat Ini (Ha)",
-    min_value=0.0,
-    max_value=15000.0,
-    value=default_luas_tanam,
-    step=10.0,
-    help="Masukkan luas lahan padi yang ditanam pada bulan ini di wilayah terpilih."
-)
-
-st.sidebar.markdown("<hr style='border: 1px solid rgba(255,255,255,0.05);'>", unsafe_allow_html=True)
-
 # File uploader for Simontadi
 st.sidebar.markdown("### 📥 Integrasi Simontadi")
 uploaded_file = st.sidebar.file_uploader(
@@ -475,7 +460,7 @@ st.sidebar.markdown(
     <div style="background: rgba(30,41,59,0.5); padding:15px; border-radius:12px; border: 1px solid rgba(255,255,255,0.03); margin-top: 15px;">
         <span style="font-size:0.75rem; color:#64748b; font-weight:600; text-transform:uppercase; letter-spacing:1px;">Prinsip Aplikasi</span>
         <p style="font-size:0.8rem; color:#94a3b8; margin: 5px 0 0 0; line-height: 1.4;">
-            <b>Simontadi:</b> "Apa yang terjadi"<br>
+            <b>Simontadi:</b> "Apa yang terjadi di lahan"<br>
             <b>Jateng Harvest:</b> "Apa yang harus Anda siapkan"
         </p>
     </div>
@@ -487,18 +472,18 @@ st.sidebar.markdown(
 # MAIN PAGE ROUTING & DASHBOARD BODY
 # ==========================================
 
-# 1. Welcome Header and digital landing
+# Bagian 1: Header & Sambutan (Paling Atas)
 st.markdown(
     """
-    <div class="header-card">
-        <span style="background-color: #10b981; color: #0f172a; padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">
-            Sugeng Rawuh! Jateng Harvest
+    <div class="header-card" style="text-align: center; padding: 30px 20px; border-radius: 16px; margin-bottom: 25px;">
+        <span style="background-color: #10b981; color: #0f172a; padding: 6px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">
+            Sugeng Rawuh! Sistem Peringatan Dini Panen
         </span>
-        <h1 style="margin: 10px 0 5px 0; font-size: 2.5rem; letter-spacing: -1px; background: linear-gradient(90deg, #ffffff 0%, #cbd5e1 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-            Mari Siapkan Panen Anda Secara Terukur
+        <h1 style="margin: 20px 0 10px 0; font-size: 2.4rem; letter-spacing: -0.5px; color: #ffffff;">
+            Mau cek persiapan panen di kecamatan mana hari ini?
         </h1>
-        <p style="margin: 0; color: #94a3b8; font-size: 1.1rem; font-weight: 400; line-height:1.5;">
-            Mengolah data tanam mentah <b>Simontadi</b> menjadi estimasi perencanaan logistik dan operasional pasca-panen secara otomatis dan terstruktur.
+        <p style="margin: 0; color: #cbd5e1; font-size: 1.1rem; line-height: 1.6;">
+            Aplikasi publik ini menerjemahkan data pertanian menjadi instruksi persiapan logistik nyata bagi petani agar tidak rugi.
         </p>
     </div>
     """,
@@ -517,12 +502,46 @@ if uploaded_file is not None:
     except Exception as e:
         st.error(f"Gagal membaca berkas: {e}")
 
-# MAIN TABS:
-# Tab 1: AI Predictor (The Core Engine)
-# Tab 2: Regional 2025 Summary (Historical Backdrop/Novelty Proof)
-# Tab 3: Simontadi 2026 Batch Predictor (Digital Integration)
-# Tab 4: Price & Selling Education (Edukasi Harga)
+# Bagian 2: Area Input (Tengah Atas)
+st.markdown("<div style='background: rgba(30, 41, 59, 0.6); padding: 25px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 30px;'>", unsafe_allow_html=True)
+st.markdown("<h3 style='margin-top:0; color:#10b981;'>📍 Pilih Wilayah Lahan Anda</h3>", unsafe_allow_html=True)
 
+if not df_hist.empty:
+    list_kabupaten = sorted(df_hist['Kabupaten'].unique())
+else:
+    list_kabupaten = sorted(le_kab.classes_)
+
+col_loc1, col_loc2 = st.columns(2)
+with col_loc1:
+    selected_kab = st.selectbox("Kabupaten:", list_kabupaten)
+
+if not df_hist.empty:
+    list_kecamatan = sorted(df_hist[df_hist['Kabupaten'] == selected_kab]['Kecamatan'].unique())
+else:
+    list_kecamatan = [k for k in sorted(le_kec.classes_) if k in df_hist['Kecamatan'].values]
+
+with col_loc2:
+    selected_kec = st.selectbox("Kecamatan:", list_kecamatan)
+
+st.markdown("<hr style='border: 1px solid rgba(255,255,255,0.05); margin: 20px 0;'>", unsafe_allow_html=True)
+st.markdown("<h3 style='margin-top:0; color:#f59e0b;'>🌱 Kondisi Lahan Terkini</h3>", unsafe_allow_html=True)
+
+col_inp1, col_inp2 = st.columns(2)
+with col_inp1:
+    selected_month = st.selectbox("Bulan Tanam Terakhir:", MONTHS_ID, index=4)
+
+default_luas_tanam = 100.0
+if not df_hist.empty:
+    baseline = get_historical_luas_tanam(df_hist, selected_kab, selected_kec, MONTH_MAP_ID_TO_NUM[selected_month])
+    if baseline > 0:
+        default_luas_tanam = round(baseline, 2)
+
+with col_inp2:
+    manual_luas_tanam = st.number_input("Ketik luas lahan Anda (Hektar):", min_value=0.0, max_value=15000.0, value=default_luas_tanam, step=10.0)
+
+st.markdown("</div>", unsafe_allow_html=True)
+
+# MAIN TABS
 tab_predict, tab_batch, tab_summary, tab_education, tab_monitoring = st.tabs([
     "🔮 Estimasi & Instruksi Pasca-Panen",
     "📊 Estimasi Massal Laporan Simontadi 2026",
@@ -532,14 +551,13 @@ tab_predict, tab_batch, tab_summary, tab_education, tab_monitoring = st.tabs([
 ])
 
 # ------------------------------------------
-# TAB 1: INDIVIDUAL AI PREDICTOR
+# TAB 1: INDIVIDUAL PREDICTOR
 # ------------------------------------------
 with tab_predict:
-    # Quick Summary Row of the Chosen Area
-    st.markdown(f"### 📍 Analisis Lahan: Kecamatan **{selected_kec}**, {selected_kab}")
+    st.markdown(f"### 🌾 Perkiraan Panen: Kecamatan **{selected_kec}**, {selected_kab}")
     
-    col_input_summary, col_calc_btn = st.columns([3, 1])
-    with col_input_summary:
+    col_sum_info, col_btn_run = st.columns([3, 1])
+    with col_sum_info:
         st.markdown(
             f"""
             <div style="background: rgba(255,255,255,0.02); padding: 12px 20px; border-radius:12px; border:1px solid rgba(255,255,255,0.03);">
@@ -550,202 +568,139 @@ with tab_predict:
             """,
             unsafe_allow_html=True
         )
-    with col_calc_btn:
-        run_prediction = st.button("🚀 Hitung Persiapan Panen")
+    with col_btn_run:
+        st.button("🚀 Hitung Persiapan Panen", use_container_width=True)
 
-    # Run predictions automatically or when button is clicked
-    if True: # Always show current selected as default, button adds highlight
-        predictions = get_3_month_predictions(df_hist, selected_kab, selected_kec, selected_month, manual_luas_tanam)
-        total_est_ton = sum([p['Prediksi_Ha'] for p in predictions]) * productivity_rate
-        log_anonymous_activity(selected_kec, selected_kab, manual_luas_tanam, productivity_rate, total_est_ton)
-        
-        # Display Prediction Cards
-        st.markdown("<h4 style='margin-top:25px; margin-bottom:15px;'>🔮 Estimasi Luas Panen 3 Bulan ke Depan</h4>", unsafe_allow_html=True)
-        
-        pred_cols = st.columns(3)
-        for idx, pred in enumerate(predictions):
-            with pred_cols[idx]:
-                st.markdown(
-                    f"""
-                    <div class="glass-card" style="border-top: 4px solid #10b981 !important; text-align: center;">
-                        <span style="font-size:0.8rem; color:#10b981; font-weight:700; text-transform:uppercase; letter-spacing:1px;">
-                            Bulan Ke-{idx+1} ({pred['Bulan_Nama']})
-                        </span>
-                        <div class="metric-val" style="margin: 15px 0 5px 0;">{pred['Prediksi_Ha']:,.1f} Ha</div>
-                        <div class="sub-text" style="color:#e2e8f0; font-size: 0.95rem; font-weight:500;">
-                            Rentang Batas Estimasi Toleransi:
-                        </div>
-                        <div style="font-size:1.1rem; color:#fbbf24; font-weight:700; margin-top:2px;">
-                            {pred['Min_Ha']:,.1f} - {pred['Max_Ha']:,.1f} Ha
-                        </div>
-                        <p class="sub-text" style="margin-top:12px; line-height:1.4;">
-                            *Rentang di atas menunjukkan batas toleransi wajar berdasarkan perhitungan historis wilayah (63.4 Ha).
-                        </p>
-                    </div>
-                    """,
-                    unsafe_allow_html=True
-                )
-
-        # Plotly Prediction Forecast with Error Bands
-        st.markdown("<h4 style='margin-top:20px; margin-bottom:15px;'>📈 Grafik Tren Estimasi Luas Panen</h4>", unsafe_allow_html=True)
-        
-        months_plot = [p['Bulan_Nama'] for p in predictions]
-        preds_plot = [p['Prediksi_Ha'] for p in predictions]
-        mins_plot = [p['Min_Ha'] for p in predictions]
-        maxs_plot = [p['Max_Ha'] for p in predictions]
-        
-        fig_forecast = go.Figure()
-        
-        # Error Area/Band
-        fig_forecast.add_trace(go.Scatter(
-            x=months_plot + months_plot[::-1],
-            y=maxs_plot + mins_plot[::-1],
-            fill='toself',
-            fillcolor='rgba(16, 185, 129, 0.1)',
-            line=dict(color='rgba(255,255,255,0)'),
-            hoverinfo="skip",
-            showlegend=True,
-            name="Batas Toleransi Perhitungan"
-        ))
-        
-        # Main Line
-        fig_forecast.add_trace(go.Scatter(
-            x=months_plot,
-            y=preds_plot,
-            line=dict(color='#10b981', width=4),
-            marker=dict(size=10, color='#f59e0b', symbol='diamond'),
-            mode='lines+markers+text',
-            text=[f"{p:,.1f} Ha" for p in preds_plot],
-            textposition="top center",
-            name="Estimasi Luas Panen Utama"
-        ))
-        
-        fig_forecast.update_layout(
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font_color='#cbd5e1',
-            margin=dict(l=40, r=40, t=20, b=40),
-            height=300,
-            xaxis=dict(showgrid=False),
-            yaxis=dict(title="Luas Panen (Hektar)", showgrid=True, gridcolor='rgba(255,255,255,0.05)'),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-        )
-        st.plotly_chart(fig_forecast, use_container_width=True)
-
-        # Rencana Instruksi Persiapan Panen Otomatis
+    # Run calculation
+    predictions = get_3_month_predictions(df_hist, selected_kab, selected_kec, selected_month, manual_luas_tanam)
+    
+    # Calculate aggregate production for upcoming 3 months
+    total_est_ha = sum([p['Prediksi_Ha'] for p in predictions])
+    total_est_ton = total_est_ha * productivity_rate
+    total_karung = total_est_ton * 20
+    total_buruh = math.ceil(total_est_ha / 2.0)
+    
+    # Log telemetry
+    log_anonymous_activity(selected_kec, selected_kab, manual_luas_tanam, productivity_rate, total_est_ton)
+    
+    # Bagian 3: Visualisasi Hasil (Kartu Informasi / Metrics Card Kontras Tinggi)
+    st.markdown("<h4 style='margin-top:25px; margin-bottom:15px;'>📊 Ringkasan Kebutuhan 3 Bulan Ke Depan</h4>", unsafe_allow_html=True)
+    
+    mc1, mc2, mc3 = st.columns(3)
+    with mc1:
         st.markdown(
-            """
-            <div style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(16, 185, 129, 0.05) 100%); border-left: 5px solid #f59e0b; padding: 20px; border-radius: 12px; margin-top:30px; margin-bottom:20px;">
-                <h3 style="margin:0 0 5px 0; font-size:1.4rem; color: #f59e0b; display:flex; align-items:center; gap: 8px;">
-                    🌾 Rencana Instruksi Persiapan Panen Otomatis
-                </h3>
-                <p style="margin:0; color:#cbd5e1; font-size:0.95rem;">
-                    Berdasarkan estimasi luas panen di atas, sistem secara otomatis merancang instruksi kebutuhan karung, alat pemanen, dan lantai jemur untuk masing-masing bulan.
-                </p>
+            f"""
+            <div class="glass-card" style="border-top: 4px solid #f59e0b !important; text-align: center;">
+                <span style="font-size:0.8rem; color:#f59e0b; font-weight:700; text-transform:uppercase;">ESTIMASI HASIL</span>
+                <div style="font-size:2.2rem; color:#facc15; font-weight:800; margin:10px 0;">{total_est_ton:,.1f} Ton</div>
+                <p style="font-size:0.85rem; color:#cbd5e1; margin:0;">Dari total {total_est_ha:,.1f} Hektar panen</p>
             </div>
             """,
             unsafe_allow_html=True
         )
-        
-        # Tabs for instructions of Month 1, 2, and 3
-        inst_tabs = st.tabs([f"📦 Persiapan Bulan {p['Bulan_Nama']}" for p in predictions])
-        
-        for idx, pred in enumerate(predictions):
-            with inst_tabs[idx]:
-                ha = pred['Prediksi_Ha']
-                # Harvest statistics calculations
-                total_production_tons = ha * productivity_rate
-                sacks_needed = math.ceil(total_production_tons * 20) # 20 sacks of 50kg per ton
-                harvesters_needed = math.ceil(ha / 15.0) # 1 harvester handles 1.5 Ha per day over 10 days
-                drying_area_sqm = total_production_tons * 12 # 12 sqm per ton
-                storage_vol_m3 = total_production_tons * 1.8 # 1.8 m3 per ton
-                
-                col1, col2, col3 = st.columns(3)
-                
-                with col1:
-                    st.markdown(
-                        f"""
-                        <div class="rec-card">
-                            <span style="font-size:0.75rem; color:#10b981; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">LOGISTIK PENGEMASAN</span>
-                            <h4 style="margin: 5px 0; font-size:1.15rem;">📦 Pembelian Karung Gabah</h4>
-                            <div style="font-size:1.6rem; font-weight:800; color:#10b981; margin:10px 0 5px 0;">{sacks_needed:,} Lembar</div>
-                            <p style="font-size:0.8rem; color:#94a3b8; margin:0; line-height:1.4;">
-                                Berdasarkan estimasi produksi <b>{total_production_tons:,.1f} Ton</b> gabah basah. Dibutuhkan karung kapasitas 50 Kg.
-                            </p>
-                            <div style="background: rgba(16, 185, 129, 0.1); border-radius: 8px; padding: 6px 12px; margin-top:12px; font-size:0.8rem; color:#34d399; font-weight:500;">
-                                💡 Pesan karung selambatnya 2 minggu sebelum panen.
-                            </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-                    
-                with col2:
-                    st.markdown(
-                        f"""
-                        <div class="rec-card rec-card-gold">
-                            <span style="font-size:0.75rem; color:#f59e0b; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">OPERASIONAL LAPANGAN</span>
-                            <h4 style="margin: 5px 0; font-size:1.15rem;">🚜 Sewa Combine Harvester</h4>
-                            <div style="font-size:1.6rem; font-weight:800; color:#f59e0b; margin:10px 0 5px 0;">{harvesters_needed} Unit Alat</div>
-                            <p style="font-size:0.8rem; color:#94a3b8; margin:0; line-height:1.4;">
-                                Diperlukan untuk menyelesaikan panen seluas <b>{ha:,.1f} Ha</b> dalam durasi jendela aman panen raya 10 hari.
-                            </p>
-                            <div style="background: rgba(245, 158, 11, 0.1); border-radius: 8px; padding: 6px 12px; margin-top:12px; font-size:0.8rem; color:#fbbf24; font-weight:500;">
-                                💡 Hubungi kelompok tani (UPJA) terdekat untuk pemesanan.
-                            </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
-                    
-                with col3:
-                    st.markdown(
-                        f"""
-                        <div class="rec-card rec-card-blue">
-                            <span style="font-size:0.75rem; color:#3b82f6; font-weight:700; text-transform:uppercase; letter-spacing:0.5px;">PASCA PANEN & PENYIMPANAN</span>
-                            <h4 style="margin: 5px 0; font-size:1.15rem;">🏢 Lantai Jemur & Gudang</h4>
-                            <div style="font-size:1.35rem; font-weight:800; color:#3b82f6; margin:10px 0 5px 0;">📐 {drying_area_sqm:,.0f} m² Lantai Jemur</div>
-                            <div style="font-size:1.35rem; font-weight:800; color:#60a5fa; margin:0 0 10px 0;">📦 {storage_vol_m3:,.0f} m³ Gudang</div>
-                            <p style="font-size:0.8rem; color:#94a3b8; margin:0; line-height:1.4;">
-                                Luasan lantai jemur gabah agar kadar air turun ke 14% serta kapasitas ruang penyimpanan terstandar.
-                            </p>
-                        </div>
-                        """,
-                        unsafe_allow_html=True
-                    )
+    with mc2:
+        st.markdown(
+            f"""
+            <div class="glass-card" style="border-top: 4px solid #10b981 !important; text-align: center;">
+                <span style="font-size:0.8rem; color:#10b981; font-weight:700; text-transform:uppercase;">BUTUH KARUNG</span>
+                <div style="font-size:2.2rem; color:#facc15; font-weight:800; margin:10px 0;">{int(total_karung):,} Lembar</div>
+                <p style="font-size:0.85rem; color:#cbd5e1; margin:0;">Kapasitas karung 50 Kg</p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+    with mc3:
+        st.markdown(
+            f"""
+            <div class="glass-card" style="border-top: 4px solid #3b82f6 !important; text-align: center;">
+                <span style="font-size:0.8rem; color:#3b82f6; font-weight:700; text-transform:uppercase;">BUTUH BURUH</span>
+                <div style="font-size:2.2rem; color:#facc15; font-weight:800; margin:10px 0;">{total_buruh:,} Orang</div>
+                <p style="font-size:0.85rem; color:#cbd5e1; margin:0;">Tenaga panen & angkut</p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-        # ==========================================
-        # TUGAS 1 & TUGAS 3: CETAK PDF & MODUL FEEDBACK
-        # ==========================================
-        st.markdown("<hr style='border: 1px solid rgba(255,255,255,0.05); margin-top:35px; margin-bottom:20px;'>", unsafe_allow_html=True)
-        
-        col_pdf, col_feed = st.columns([1, 1])
-        
-        with col_pdf:
-            st.markdown("#### 📥 Unduh Kartu Persiapan Logistik")
-            st.caption("Cetak rangkuman instruksi fisik untuk dibawa ke kelompok tani / penyedia alat (Alsintan). Mobile-friendly!")
-            pdf_data = generate_pdf_report(selected_kab, selected_kec, selected_month, manual_luas_tanam, productivity_rate, predictions)
-            st.download_button(
-                label="📄 Cetak Laporan & Instruksi (PDF)",
-                data=pdf_data,
-                file_name=f"Kartu_Persiapan_Panen_{selected_kec}_{selected_kab}.pdf",
-                mime="application/pdf",
-                key="btn_pdf_download"
+    # Bagian 4: Grafik Tren (Bawah Hasil)
+    st.markdown("<h4 style='margin-top:30px; margin-bottom:15px;'>📈 Grafik Garis Puncak Panen</h4>", unsafe_allow_html=True)
+    
+    months_plot = [p['Bulan_Nama'] for p in predictions]
+    preds_plot = [p['Prediksi_Ha'] for p in predictions]
+    
+    fig_line = go.Figure()
+    fig_line.add_trace(go.Scatter(
+        x=months_plot,
+        y=preds_plot,
+        line=dict(color='#facc15', width=4),
+        marker=dict(size=12, color='#10b981'),
+        mode='lines+markers+text',
+        text=[f"{p:,.1f} Ha" for p in preds_plot],
+        textposition="top center",
+        name="Luas Panen"
+    ))
+    fig_line.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font_color='#cbd5e1',
+        margin=dict(l=30, r=30, t=20, b=30),
+        height=280,
+        xaxis=dict(showgrid=False),
+        yaxis=dict(title="Hektar (Ha)", showgrid=True, gridcolor='rgba(255,255,255,0.05)')
+    )
+    st.plotly_chart(fig_line, use_container_width=True)
+
+    # Rincian per bulan
+    st.markdown("#### 📅 Rincian Persiapan Tiap Bulan")
+    inst_tabs = st.tabs([f"Bulan {p['Bulan_Nama']}" for p in predictions])
+    for idx, pred in enumerate(predictions):
+        with inst_tabs[idx]:
+            ha = pred['Prediksi_Ha']
+            tons = ha * productivity_rate
+            sacks = math.ceil(tons * 20)
+            harv = math.ceil(ha / 15.0)
+            dry = tons * 12
+            
+            st.markdown(
+                f"""
+                <div style="background: rgba(255,255,255,0.02); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
+                    <p style="margin: 0 0 10px 0; font-size: 1.1rem; color: #10b981;"><b>Instruksi Kerja Bulan {pred['Bulan_Nama']}:</b></p>
+                    <ul style="padding-left: 20px; color: #cbd5e1; line-height: 1.8;">
+                        <li>Perkiraan panen seluas <b>{ha:,.1f} Hektar</b> (sekitar <b>{tons:,.1f} Ton</b> gabah basah).</li>
+                        <li><b>Karung:</b> Pesan <b>{sacks:,}</b> lembar karung dari sekarang.</li>
+                        <li><b>Alat Mesin:</b> Hubungi penyedia sewa untuk <b>{harv}</b> unit mesin <i>Combine Harvester</i>.</li>
+                        <li><b>Tempat Jemur:</b> Siapkan area jemur minimal seluas <b>{dry:,.0f} m²</b>.</li>
+                    </ul>
+                </div>
+                """,
+                unsafe_allow_html=True
             )
-            
-        with col_feed:
-            st.markdown("#### 💬 Masukan & Validasi Petani")
-            st.caption("Apakah hasil estimasi ini sesuai dengan kondisi lahan Anda? (Data anonim untuk validasi masa depan)")
-            
-            feed_col1, feed_col2 = st.columns(2)
-            with feed_col1:
-                if st.button("✔️ Ya, Sesuai", key="btn_feed_yes", use_container_width=True):
-                    log_user_feedback(selected_kec, selected_kab, selected_month, manual_luas_tanam, True)
-                    st.success("Terima kasih atas masukan Anda!")
-            with feed_col2:
-                if st.button("❌ Tidak Sesuai", key="btn_feed_no", use_container_width=True):
-                    log_user_feedback(selected_kec, selected_kab, selected_month, manual_luas_tanam, False)
-                    st.success("Terima kasih! Log tersimpan untuk peningkatan sistem.")
+
+    # Bagian 5: Tombol Aksi (Paling Bawah)
+    st.markdown("<hr style='border: 1px solid rgba(255,255,255,0.05); margin-top:35px; margin-bottom:20px;'>", unsafe_allow_html=True)
+    
+    st.markdown("### 📥 Cetak Kartu Instruksi Anda")
+    st.caption("Cetak rangkuman instruksi fisik untuk dibawa ke kelompok tani / penyedia alat mesin pertanian. Mobile-friendly!")
+    
+    pdf_data = generate_pdf_report(selected_kab, selected_kec, selected_month, manual_luas_tanam, productivity_rate, predictions)
+    st.download_button(
+        label="CETAK KARTU PERSIAPAN (PDF)",
+        data=pdf_data,
+        file_name=f"Kartu_Persiapan_Panen_{selected_kec}_{selected_kab}.pdf",
+        mime="application/pdf",
+        key="btn_pdf_download"
+    )
+    
+    st.markdown("#### 💬 Masukan Anda Sangat Berarti")
+    st.caption("Apakah hasil perkiraan ini sesuai dengan kondisi lahan di daerah Anda?")
+    feed_col1, feed_col2 = st.columns(2)
+    with feed_col1:
+        if st.button("✔️ Ya, Sesuai", key="btn_feed_yes", use_container_width=True):
+            log_user_feedback(selected_kec, selected_kab, selected_month, manual_luas_tanam, True)
+            st.success("Maturnuwun atas masukan Anda!")
+    with feed_col2:
+        if st.button("❌ Tidak Sesuai", key="btn_feed_no", use_container_width=True):
+            log_user_feedback(selected_kec, selected_kab, selected_month, manual_luas_tanam, False)
+            st.success("Maturnuwun! Masukan Anda membantu kami menyempurnakan perhitungan.")
 
 # ------------------------------------------
 # TAB 2: BATCH PREDICTION SIMONTADI 2026
