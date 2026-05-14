@@ -216,7 +216,7 @@ GOOGLE_SHEETS_API_URL = "https://script.google.com/macros/s/15WhpXDecY5QJQDFEu_U
 
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/15WhpXDecY5QJQDFEu_Uh4fsSLDr3fA7cinSTlLAu8f8/edit?usp=sharing"
 
-def save_log(kabupaten, kecamatan, luas_tanam, hasil_prediksi):
+def save_developer_log(kabupaten, kecamatan, luas_tanam, hasil_prediksi):
     """Fungsi penulisan otomatis log ke Google Sheets menggunakan Service Account Streamlit Secrets."""
     try:
         # Menghubungkan ke Google Sheets melalui GSheetsConnection
@@ -280,7 +280,7 @@ def log_anonymous_activity(kecamatan, kabupaten, luas_tanam, asumsi_prod, estima
         pass # fail silently
         
     # 3. Eksekusi koneksi GSheetsConnection resmi Streamlit Secrets
-    save_log(kabupaten, kecamatan, luas_tanam, estimasi_ton)
+    save_developer_log(kabupaten, kecamatan, luas_tanam, estimasi_ton)
 
 def log_user_feedback(kecamatan, kabupaten, bulan_tanam, luas_tanam, akurat):
     """Tugas 3: Modul Feedback Inklusif untuk Validasi Model Masa Depan."""
