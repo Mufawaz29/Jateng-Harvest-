@@ -229,16 +229,16 @@ def save_log(kabupaten, kecamatan, luas_tanam, hasil_prediksi):
             existing_df = pd.DataFrame()
             
         # Jika sheet masih kosong atau belum memiliki header yang tepat, inisialisasi kolom standar
-        if existing_df.empty or "Timestamp" not in existing_df.columns:
-            existing_df = pd.DataFrame(columns=["Timestamp", "Kabupaten", "Kecamatan", "Luas Tanam", "Hasil Prediksi"])
+        if existing_df.empty or "Waktu" not in existing_df.columns:
+            existing_df = pd.DataFrame(columns=["Waktu", "Kabupaten", "Kecamatan", "Luas_Tanam", "Estimasi_Panen"])
         
         # Membangun baris data baru
         new_row = pd.DataFrame([{
-            "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "Waktu": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             "Kabupaten": str(kabupaten),
             "Kecamatan": str(kecamatan),
-            "Luas Tanam": float(luas_tanam),
-            "Hasil Prediksi": float(hasil_prediksi)
+            "Luas_Tanam": float(luas_tanam),
+            "Estimasi_Panen": float(hasil_prediksi)
         }])
         
         # Menambahkan baris baru di bawah data yang sudah ada
@@ -247,8 +247,8 @@ def save_log(kabupaten, kecamatan, luas_tanam, hasil_prediksi):
         # Memperbarui spreadsheet dengan parameter URL eksplisit
         conn.update(spreadsheet=SPREADSHEET_URL, worksheet="Sheet1", data=updated_df)
     except Exception as e:
-        # Menangani error secara elegan agar aplikasi tidak crash saat offline atau secrets belum terisi
-        pass
+        # Menampilkan pesan error secara langsung jika terjadi kegagalan otorisasi atau koneksi
+        st.error(f"Gagal mengirim data ke Google Sheets: {e}")
 
 def log_anonymous_activity(kecamatan, kabupaten, luas_tanam, asumsi_prod, estimasi_ton):
     """Tugas 2 & Fitur 5: Anonymous Activity Logger & Telemetry ke Google Sheets (Tanpa Identitas Pribadi)."""
@@ -629,7 +629,7 @@ with tab_predict:
             unsafe_allow_html=True
         )
     with col_btn_run:
-        st.button("🚀 Hitung Persiapan Panen", use_container_width=True)
+        hitung_btn = st.button("🚀 Hitung Persiapan Panen", use_container_width=True)
 
     # Run calculation
     predictions = get_3_month_predictions(df_hist, selected_kab, selected_kec, selected_month, manual_luas_tanam)
@@ -642,6 +642,8 @@ with tab_predict:
     
     # Log telemetry
     log_anonymous_activity(selected_kec, selected_kab, manual_luas_tanam, productivity_rate, total_est_ton)
+    if hitung_btn:
+        st.success("✔️ Data berhasil tercatat di laporan developer!")
     
     # Bagian 3: Visualisasi Hasil (Kartu Informasi / Metrics Card Kontras Tinggi)
     st.markdown("<h4 style='margin-top:25px; margin-bottom:15px;'>📊 Ringkasan Kebutuhan 3 Bulan Ke Depan</h4>", unsafe_allow_html=True)
