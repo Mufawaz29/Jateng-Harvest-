@@ -214,7 +214,7 @@ TELEMETRY_FILE = "telemetri_penggunaan.csv"
 FEEDBACK_FILE = "log_feedback_petani.csv"
 GOOGLE_SHEETS_API_URL = "https://script.google.com/macros/s/15WhpXDecY5QJQDFEu_Uh4fsSLDr3fA7cinSTlLAu8f8/exec"
 
-SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/15WhpXDecY5QJQDFEu_Uh4fsSLDr3fA7cinSTlLAu8f8/edit?usp=sharing"
+SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/15WhpXDecY5QJQDFEu_Uh4fsSLDr3fA7cinSTlLAu8f8/edit#gid=0"
 
 def save_developer_log(kabupaten, kecamatan, luas_tanam, hasil_prediksi):
     """Fungsi penulisan otomatis log ke Google Sheets menggunakan Service Account Streamlit Secrets."""
@@ -222,9 +222,9 @@ def save_developer_log(kabupaten, kecamatan, luas_tanam, hasil_prediksi):
         # Menghubungkan ke Google Sheets melalui GSheetsConnection
         conn = st.connection("gsheets", type=GSheetsConnection)
         
-        # Membaca data yang sudah ada di worksheet "Sheet1" menggunakan konfigurasi Service Account di secrets
+        # Membaca data yang sudah ada di worksheet "Sheet1" dengan parameter spreadsheet eksplisit
         try:
-            existing_df = conn.read(worksheet="Sheet1", ttl=0)
+            existing_df = conn.read(spreadsheet=SPREADSHEET_URL, worksheet="Sheet1", ttl=0)
         except Exception:
             existing_df = pd.DataFrame()
             
@@ -244,11 +244,16 @@ def save_developer_log(kabupaten, kecamatan, luas_tanam, hasil_prediksi):
         # Menambahkan baris baru di bawah data yang sudah ada
         updated_df = pd.concat([existing_df, new_row], ignore_index=True)
         
-        # Memperbarui spreadsheet menggunakan konfigurasi Service Account di secrets
-        conn.update(worksheet="Sheet1", data=updated_df)
+        # Memperbarui spreadsheet dengan parameter spreadsheet eksplisit
+        conn.update(spreadsheet=SPREADSHEET_URL, worksheet="Sheet1", data=updated_df)
     except Exception as e:
-        # Menampilkan pesan error secara langsung jika terjadi kegagalan otorisasi atau koneksi
+        # Menampilkan pesan error dan petunjuk otentikasi Editor secara sangat jelas
         st.error(f"Gagal mengirim data ke Google Sheets: {e}")
+        st.warning(
+            "⚠️ **Petunjuk Penting Otentikasi Google Sheets (Permission Denied):**\n\n"
+            "Jika data gagal masuk, Anda **WAJIB** membuka file Google Sheets Anda (`jateng_proyek`), klik tombol **Share (Bagikan)** di pojok kanan atas, dan tambahkan email Service Account bot ini sebagai **Editor**:\n\n"
+            "👉 `jateng-harvest-bot@jateng-harvest-monitoring.iam.gserviceaccount.com`"
+        )
 
 def log_anonymous_activity(kecamatan, kabupaten, luas_tanam, asumsi_prod, estimasi_ton):
     """Tugas 2 & Fitur 5: Anonymous Activity Logger & Telemetry ke Google Sheets (Tanpa Identitas Pribadi)."""
