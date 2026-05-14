@@ -189,9 +189,37 @@ MODEL_MAE = 63.4
 # ==========================================
 # TELEMETRI, FEEDBACK, & KARTU PDF (TUGAS 1-3)
 # ==========================================
+from streamlit_gsheets import GSheetsConnection
 TELEMETRY_FILE = "telemetri_penggunaan.csv"
 FEEDBACK_FILE = "log_feedback_petani.csv"
 GOOGLE_SHEETS_API_URL = "https://script.google.com/macros/s/15WhpXDecY5QJQDFEu_Uh4fsSLDr3fA7cinSTlLAu8f8/exec"
+
+def save_log(kabupaten, kecamatan, luas_tanam, hasil_prediksi):
+    """Fungsi penulisan otomatis log ke Google Sheets menggunakan Service Account Streamlit Secrets."""
+    try:
+        # Menghubungkan ke Google Sheets melalui GSheetsConnection
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        
+        # Membaca data yang sudah ada di worksheet "Sheet1"
+        existing_df = conn.read(worksheet="Sheet1", ttl=0)
+        
+        # Membangun baris data baru
+        new_row = pd.DataFrame([{
+            "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "Kabupaten": str(kabupaten),
+            "Kecamatan": str(kecamatan),
+            "Luas Tanam": float(luas_tanam),
+            "Hasil Prediksi": float(hasil_prediksi)
+        }])
+        
+        # Menambahkan baris baru di bawah data yang sudah ada
+        updated_df = pd.concat([existing_df, new_row], ignore_index=True)
+        
+        # Memperbarui spreadsheet
+        conn.update(worksheet="Sheet1", data=updated_df)
+    except Exception as e:
+        # Menangani error secara elegan agar aplikasi tidak crash saat offline atau secrets belum terisi
+        pass
 
 def log_anonymous_activity(kecamatan, kabupaten, luas_tanam, asumsi_prod, estimasi_ton):
     """Tugas 2 & Fitur 5: Anonymous Activity Logger & Telemetry ke Google Sheets (Tanpa Identitas Pribadi)."""
@@ -207,7 +235,7 @@ def log_anonymous_activity(kecamatan, kabupaten, luas_tanam, asumsi_prod, estima
     except Exception:
         pass
         
-    # 2. Kirim ke Google Sheets API secara asinkron
+    # 2. Kirim ke Google Sheets via Web App URL
     try:
         payload = {
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -220,7 +248,10 @@ def log_anonymous_activity(kecamatan, kabupaten, luas_tanam, asumsi_prod, estima
         req = urllib.request.Request(GOOGLE_SHEETS_API_URL, data=data)
         urllib.request.urlopen(req, timeout=3)
     except Exception:
-        pass # fail silently to avoid blocking user interaction
+        pass # fail silently
+        
+    # 3. Eksekusi koneksi GSheetsConnection resmi Streamlit Secrets
+    save_log(kabupaten, kecamatan, luas_tanam, estimasi_ton)
 
 def log_user_feedback(kecamatan, kabupaten, bulan_tanam, luas_tanam, akurat):
     """Tugas 3: Modul Feedback Inklusif untuk Validasi Model Masa Depan."""
