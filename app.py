@@ -222,9 +222,9 @@ def save_log(kabupaten, kecamatan, luas_tanam, hasil_prediksi):
         # Menghubungkan ke Google Sheets melalui GSheetsConnection
         conn = st.connection("gsheets", type=GSheetsConnection)
         
-        # Membaca data yang sudah ada di worksheet "Sheet1" dengan parameter URL eksplisit
+        # Membaca data yang sudah ada di worksheet "Sheet1" menggunakan konfigurasi Service Account di secrets
         try:
-            existing_df = conn.read(spreadsheet=SPREADSHEET_URL, worksheet="Sheet1", ttl=0)
+            existing_df = conn.read(worksheet="Sheet1", ttl=0)
         except Exception:
             existing_df = pd.DataFrame()
             
@@ -244,8 +244,8 @@ def save_log(kabupaten, kecamatan, luas_tanam, hasil_prediksi):
         # Menambahkan baris baru di bawah data yang sudah ada
         updated_df = pd.concat([existing_df, new_row], ignore_index=True)
         
-        # Memperbarui spreadsheet dengan parameter URL eksplisit
-        conn.update(spreadsheet=SPREADSHEET_URL, worksheet="Sheet1", data=updated_df)
+        # Memperbarui spreadsheet menggunakan konfigurasi Service Account di secrets
+        conn.update(worksheet="Sheet1", data=updated_df)
     except Exception as e:
         # Menampilkan pesan error secara langsung jika terjadi kegagalan otorisasi atau koneksi
         st.error(f"Gagal mengirim data ke Google Sheets: {e}")
