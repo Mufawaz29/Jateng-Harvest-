@@ -48,22 +48,19 @@ else:
     """
 
 # Custom premium styling with Glassmorphism, tailored animations, and high-end colors
-custom_css = f"""
+custom_css = """
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
 
-    html, body, [class*="css"] {{
+    html, body, [class*="css"] {
         font-family: 'Inter', sans-serif;
-    }}
+    }
     
-    h1, h2, h3, h4, h5, h6 {{
+    h1, h2, h3, h4, h5, h6 {
         font-family: 'Outfit', sans-serif;
         font-weight: 700;
         color: #ffffff;
-    }}
-
-    {bg_img_css}
-
+    }
 
     /* Sidebar Glassmorphism styling */
     [data-testid="stSidebar"] {
@@ -160,6 +157,7 @@ custom_css = f"""
     }
 </style>
 """
+st.markdown(f"<style>{bg_img_css}</style>", unsafe_allow_html=True)
 st.markdown(custom_css, unsafe_allow_html=True)
 
 from fpdf import FPDF
