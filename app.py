@@ -194,14 +194,16 @@ TELEMETRY_FILE = "telemetri_penggunaan.csv"
 FEEDBACK_FILE = "log_feedback_petani.csv"
 GOOGLE_SHEETS_API_URL = "https://script.google.com/macros/s/15WhpXDecY5QJQDFEu_Uh4fsSLDr3fA7cinSTlLAu8f8/exec"
 
+SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/15WhpXDecY5QJQDFEu_Uh4fsSLDr3fA7cinSTlLAu8f8/edit?usp=sharing"
+
 def save_log(kabupaten, kecamatan, luas_tanam, hasil_prediksi):
     """Fungsi penulisan otomatis log ke Google Sheets menggunakan Service Account Streamlit Secrets."""
     try:
         # Menghubungkan ke Google Sheets melalui GSheetsConnection
         conn = st.connection("gsheets", type=GSheetsConnection)
         
-        # Membaca data yang sudah ada di worksheet "Sheet1"
-        existing_df = conn.read(worksheet="Sheet1", ttl=0)
+        # Membaca data yang sudah ada di worksheet "Sheet1" dengan parameter URL eksplisit
+        existing_df = conn.read(spreadsheet=SPREADSHEET_URL, worksheet="Sheet1", ttl=0)
         
         # Membangun baris data baru
         new_row = pd.DataFrame([{
@@ -215,8 +217,8 @@ def save_log(kabupaten, kecamatan, luas_tanam, hasil_prediksi):
         # Menambahkan baris baru di bawah data yang sudah ada
         updated_df = pd.concat([existing_df, new_row], ignore_index=True)
         
-        # Memperbarui spreadsheet
-        conn.update(worksheet="Sheet1", data=updated_df)
+        # Memperbarui spreadsheet dengan parameter URL eksplisit
+        conn.update(spreadsheet=SPREADSHEET_URL, worksheet="Sheet1", data=updated_df)
     except Exception as e:
         # Menangani error secara elegan agar aplikasi tidak crash saat offline atau secrets belum terisi
         pass
@@ -1044,6 +1046,24 @@ with tab_monitoring:
         Halaman pemantauan internal bagi developer untuk memonitor aktivitas penggunaan aplikasi secara *real-time* 
         berdasarkan sebaran wilayah aktif (Kecamatan/Kabupaten) dengan mematuhi prinsip **Privacy by Design** (tanpa identitas pribadi).
         """
+    )
+    
+    st.markdown(
+        f"""
+        <div style="background: rgba(16, 185, 129, 0.1); border-left: 5px solid #10b981; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
+            <h4 style="margin: 0 0 10px 0; color: #10b981;">📡 Status Koneksi Live Google Sheets API</h4>
+            <p style="margin: 0 0 8px 0; color: #cbd5e1; font-size: 0.95rem;">
+                <b>Spreadsheet Target:</b> <a href="https://docs.google.com/spreadsheets/d/15WhpXDecY5QJQDFEu_Uh4fsSLDr3fA7cinSTlLAu8f8/edit?usp=sharing" target="_blank" style="color: #60a5fa; text-decoration: underline;">Buka Google Sheets Laporan</a>
+            </p>
+            <p style="margin: 0 0 8px 0; color: #cbd5e1; font-size: 0.95rem;">
+                <b>Akun Service Account:</b> <code>jateng-harvest-bot@jateng-harvest-monitoring.iam.gserviceaccount.com</code>
+            </p>
+            <p style="margin: 0; color: #34d399; font-size: 0.85rem;">
+                ✔️ Sistem dikonfigurasi menggunakan <code>st.connection('gsheets', type=GSheetsConnection)</code> dengan penanganan error anti-crash dan pencatatan ganda ke CSV lokal.
+            </p>
+        </div>
+        """,
+        unsafe_allow_html=True
     )
     
     col_t1, col_t2 = st.columns(2)
