@@ -369,9 +369,8 @@ def safe_transform(encoder, label, default_val=-1):
 
 def transform_realtime_simotandi(uploaded_file):
     """
-    ETL function to parse raw SIMOTANDI files.
-    - Dynamically skips metadata rows.
-    - Cleans column names (lowercase, strips, replaces newline).
+    Advanced ETL function to parse raw SIMOTANDI files with multi-level merged headers.
+    - Uses vertical scanning to identify columns, bypassing messy horizontal rows.
     """
     try:
         if uploaded_file.name.endswith('.csv'):
@@ -379,35 +378,76 @@ def transform_realtime_simotandi(uploaded_file):
         else:
             df_uploaded = pd.read_excel(uploaded_file, header=None)
             
-        header_idx = -1
-        # Find the actual header row dynamically
-        for i, row in df_uploaded.iterrows():
-            row_str = ' '.join(row.astype(str)).lower()
-            # Syarat kuat: harus ada area (kabupaten/kecamatan/wilayah) DAN data fase tanam (tanam/panen)
-            if ('kabupaten' in row_str or 'kecamatan' in row_str or 'wilayah' in row_str) and ('tanam' in row_str or 'panen' in row_str):
-                header_idx = i
-                break
-                
-        if header_idx != -1:
-            # Set the header and drop previous rows
-            df_uploaded.columns = df_uploaded.iloc[header_idx]
-            df_uploaded = df_uploaded.iloc[header_idx + 1:].reset_index(drop=True)
+        # 1. Tentukan indeks kolom menggunakan Vertical Scanning (20 baris pertama)
+        col_indices = {}
+        col_matchers = {
+            'kabupaten': ['kabupaten'],
+            'kecamatan': ['kecamatan', 'nama wilayah'],
+            'tanam': ['tanam', '12'],
+            'veg1': ['vegetatif', '13'],
+            'veg2': ['vegetatif', '37'],
+            'gen1': ['generatif', '61'],
+            'gen2': ['generatif', '85'],
+            'panen': ['panen'] 
+        }
+        
+        num_cols = len(df_uploaded.columns)
+        for c in range(num_cols):
+            # Gabungkan 20 baris teratas dari kolom ini menjadi satu string panjang
+            col_header_text = ' '.join(df_uploaded.iloc[:20, c].astype(str)).lower().replace('\n', ' ')
             
-        # Clean columns: lowercase, replace \n, strip whitespace
-        raw_cols = df_uploaded.columns.astype(str).str.lower().str.replace('\n', ' ').str.strip()
+            for key, keywords in col_matchers.items():
+                if key not in col_indices:
+                    # Khusus kecamatan, jika ada dua kata kunci, cek salah satunya saja (OR)
+                    if key == 'kecamatan':
+                        if any(kw in col_header_text for kw in keywords):
+                            col_indices[key] = c
+                    else:
+                        # Sisanya cek semua kata kunci (AND)
+                        if all(kw in col_header_text for kw in keywords):
+                            col_indices[key] = c
+                        
+        # Pastikan kolom utama minimal ditemukan
+        if 'kecamatan' not in col_indices or 'tanam' not in col_indices:
+            # Kembalikan dataframe utuh (fallback ke mode lama) jika parser ini gagal
+            # Kita bersihkan nama kolom mode lama
+            df_uploaded.columns = df_uploaded.iloc[0]
+            df_uploaded = df_uploaded.iloc[1:].reset_index(drop=True)
+            df_uploaded.columns = df_uploaded.columns.astype(str).str.lower().str.replace('\n', ' ').str.strip()
+            return df_uploaded
+            
+        # 2. Cari baris pertama yang berisi data numerik pada kolom 'tanam'
+        tanam_col_idx = col_indices['tanam']
+        data_start_idx = -1
+        for i in range(25):
+            try:
+                val = str(df_uploaded.iloc[i, tanam_col_idx]).strip()
+                if val.replace('.', '', 1).isdigit() and val.lower() != 'nan':
+                    data_start_idx = i
+                    break
+            except Exception:
+                pass
+                    
+        if data_start_idx == -1:
+            data_start_idx = 5 # Asumsi standar jika tidak terdeteksi
+            
+        # 3. Potong dataframe hanya untuk area data
+        df_data = df_uploaded.iloc[data_start_idx:].reset_index(drop=True)
         
-        # Deduplicate columns to prevent PyArrow ValueError in Streamlit
-        new_cols = []
-        for i, col in enumerate(raw_cols):
-            # Jika kolom bernama 'nan', kosong, atau sudah ada di daftar new_cols
-            if col == 'nan' or col == '' or col in new_cols:
-                new_cols.append(f"{col}_{i}")
-            else:
-                new_cols.append(col)
-                
-        df_uploaded.columns = new_cols
+        # 4. Bangun dataframe baru yang sudah terstruktur rapi dengan nama standar
+        df_clean = pd.DataFrame()
+        for key, c_idx in col_indices.items():
+            df_clean[key] = df_data.iloc[:, c_idx]
+            
+        # Jika kabupaten tidak ada, isi otomatis dengan nilai default
+        if 'kabupaten' not in df_clean.columns:
+            df_clean['kabupaten'] = "Tidak Diketahui"
+            
+        # Buang baris jika 'kecamatan' nya kosong (karena ini baris spasi di excel)
+        df_clean = df_clean.dropna(subset=['kecamatan'])
+            
+        return df_clean
         
-        return df_uploaded
     except Exception as e:
         st.error(f"Gagal memparsing file mentah: {e}")
         return None
@@ -931,39 +971,17 @@ with tab_batch:
         st.markdown("#### 🔍 Pratinjau Data Simontadi yang Diunggah")
         st.dataframe(simontadi_data.head(10), use_container_width=True)
         
-        # Fuzzy column matching for maximum robustness
-        actual_cols_raw = list(simontadi_data.columns)
-        actual_cols_clean = [str(c).lower().replace(' ', '') for c in actual_cols_raw]
+        # Verifikasi Kolom Hasil ETL
+        required_cols = [
+            'kabupaten', 'kecamatan', 'tanam', 
+            'veg1', 'veg2', 'gen1', 'gen2', 'panen'
+        ]
         
-        # Kata kunci pencarian (spasi sudah dihilangkan untuk pencocokan)
-        col_matchers = {
-            'kabupaten': ['kabupaten'],
-            'kecamatan': ['kecamatan', 'namawilayah'],
-            'tanam': ['tanam(1-12', 'tanam'],
-            'veg1': ['vegetatif1', 'veg1'],
-            'veg2': ['vegetatif2', 'veg2'],
-            'gen1': ['generatif1', 'gen1'],
-            'gen2': ['generatif2', 'gen2'],
-            'panen': ['panen']
-        }
-        
-        col_mapping = {}
-        missing_cols = []
-        
-        for key, keywords in col_matchers.items():
-            found = False
-            for i, clean_col in enumerate(actual_cols_clean):
-                if any(kw in clean_col for kw in keywords):
-                    # Khusus panen, pastikan bukan "fase pertanaman" atau "luas panen" jika memungkinkan, 
-                    # tapi karena kita sudah membuang metadata, biasanya aman.
-                    col_mapping[key] = actual_cols_raw[i]
-                    found = True
-                    break
-            if not found:
-                missing_cols.append(key)
+        actual_cols = list(simontadi_data.columns)
+        missing_cols = [c for c in required_cols if c not in actual_cols]
         
         if missing_cols:
-            st.error(f"Kolom berkas tidak dapat dipetakan secara otomatis. Kategori yang hilang: {missing_cols}. Pastikan format mirip template.")
+            st.error(f"Kolom berkas tidak dapat dipetakan secara otomatis. Kategori yang hilang: {missing_cols}. Pastikan format SIMOTANDI dapat terbaca.")
         else:
             run_batch = st.button("🔮 Jalankan Proses Perhitungan Estimasi & Logistik Massal")
             
@@ -972,16 +990,24 @@ with tab_batch:
                     results = []
                     
                     for index, row_data in simontadi_data.iterrows():
-                        row_kab = str(row_data[col_mapping['kabupaten']])
-                        row_kec = str(row_data[col_mapping['kecamatan']])
+                        row_kab = str(row_data['kabupaten'])
+                        row_kec = str(row_data['kecamatan'])
                         
+                        # Pastikan tidak memproses baris yang bernilai nan
+                        if row_kec.lower() == 'nan':
+                            continue
+                            
                         # ETL Feature Alignment
-                        tanam = float(row_data[col_mapping['tanam (1 - 12 hst)']])
-                        veg1 = float(row_data[col_mapping['vegetatif 1 (13 - 36 hst)']])
-                        veg2 = float(row_data[col_mapping['vegetatif 2 (37 - 60 hst)']])
-                        gen1 = float(row_data[col_mapping['generatif 1 (61 - 84 hst)']])
-                        gen2 = float(row_data[col_mapping['generatif 2 (85 - 120 hst)']])
-                        panen_val = float(row_data[col_mapping['panen']])
+                        try:
+                            tanam = float(str(row_data['tanam']).replace(',', '.'))
+                            veg1 = float(str(row_data['veg1']).replace(',', '.'))
+                            veg2 = float(str(row_data['veg2']).replace(',', '.'))
+                            gen1 = float(str(row_data['gen1']).replace(',', '.'))
+                            gen2 = float(str(row_data['gen2']).replace(',', '.'))
+                            panen_val = float(str(row_data['panen']).replace(',', '.'))
+                        except ValueError:
+                            # Skip row if it has non-numeric data that can't be converted
+                            continue
                         
                         fase_vegetatif_est = tanam + veg1 + veg2
                         fase_generatif_est = gen1 + gen2
