@@ -382,13 +382,13 @@ def transform_realtime_simotandi(uploaded_file):
         col_indices = {}
         # Gunakan array dari berbagai kemungkinan nama kolom (cukup salah satu match = valid)
         col_matchers = {
-            'kabupaten': ['kabupaten'],
-            'kecamatan': ['kecamatan', 'nama wilayah'], # Hapus 'wilayah' agar tidak tabrakan dengan 'Kode Wilayah'
-            'tanam': ['tanam (1', 'tanam(1', 'tanam'],
-            'veg1': ['vegetatif 1', 'vegetatif1', '13 -', '13-'],
-            'veg2': ['vegetatif 2', 'vegetatif2', '37 -', '37-'],
-            'gen1': ['generatif 1', 'generatif1', '61 -', '61-'],
-            'gen2': ['generatif 2', 'generatif2', '85 -', '85-'],
+            'kabupaten': ['kabupaten', 'kab.', 'kab ', 'kab_', 'kabupaten/kota'],
+            'kecamatan': ['kecamatan', 'kec.', 'kec ', 'kec_', 'nama wilayah', 'nama kec', 'wilayah'],
+            'tanam': ['tanam', 'tanam (1', 'tanam(1'],
+            'veg1': ['vegetatif 1', 'vegetatif1', 'veg 1', 'veg1', '13 -', '13-'],
+            'veg2': ['vegetatif 2', 'vegetatif2', 'veg 2', 'veg2', '37 -', '37-'],
+            'gen1': ['generatif 1', 'generatif1', 'gen 1', 'gen1', '61 -', '61-'],
+            'gen2': ['generatif 2', 'generatif2', 'gen 2', 'gen2', '85 -', '85-'],
             'panen': ['panen'] 
         }
         
@@ -479,16 +479,6 @@ def transform_realtime_simotandi(uploaded_file):
                 df_clean['kabupaten'] = detected_kabupaten
             elif 'kecamatan' in df_clean.columns:
                 df_clean['kabupaten'] = df_clean['kecamatan']
-            
-        # DEBUG LIVE EXPANDER FOR DEVELOPER (SANGAT BERGUNA UNTUK DIAGNOSIS!)
-        with st.expander("🛠️ Live ETL Debugger (Developer Mode)", expanded=True):
-            st.write("### 🔍 Hasil Pemindaian Kolom (Vertical Scanning):")
-            st.json(col_indices)
-            st.write("### 📊 Metadata Terdeteksi:")
-            st.write(f"- Detected Kabupaten dari Metadata: **{detected_kabupaten}**")
-            st.write(f"- Data Start Row Index: **{data_start_idx}**")
-            st.write("### 📈 Struktur Data Bersih (Sebelum Dropna & Filter Provinsi):")
-            st.dataframe(df_clean.head(10), use_container_width=True)
             
         # Jika kabupaten masih tidak ada, isi otomatis dengan nilai default
         if 'kabupaten' not in df_clean.columns:
