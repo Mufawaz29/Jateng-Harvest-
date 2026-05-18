@@ -545,7 +545,12 @@ if st.query_params.get("view") == "developer":
                     st.info("Kolom 'Kecamatan' belum tersedia di Google Sheets.")
                     
             with col_d2:
-                st.markdown("### 📋 Riwayat Telemetri Live (Jateng_Proyek)")
+                col_title, col_btn = st.columns([2, 1])
+                with col_title:
+                    st.markdown("### 📋 Riwayat Telemetri Live")
+                with col_btn:
+                    st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
+                    st.link_button("🔗 Buka Google Sheets", SPREADSHEET_URL, use_container_width=True)
                 # Show latest data first
                 st.dataframe(dev_df.sort_values(by="Waktu", ascending=False), use_container_width=True, height=400)
                 
