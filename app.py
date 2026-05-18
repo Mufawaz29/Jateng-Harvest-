@@ -383,7 +383,8 @@ def transform_realtime_simotandi(uploaded_file):
         # Find the actual header row dynamically
         for i, row in df_uploaded.iterrows():
             row_str = ' '.join(row.astype(str)).lower()
-            if 'kabupaten' in row_str or 'kecamatan' in row_str or 'no' in row_str:
+            # Syarat kuat: harus ada area (kabupaten/kecamatan/wilayah) DAN data fase tanam (tanam/panen)
+            if ('kabupaten' in row_str or 'kecamatan' in row_str or 'wilayah' in row_str) and ('tanam' in row_str or 'panen' in row_str):
                 header_idx = i
                 break
                 
@@ -930,21 +931,40 @@ with tab_batch:
         st.markdown("#### 🔍 Pratinjau Data Simontadi yang Diunggah")
         st.dataframe(simontadi_data.head(10), use_container_width=True)
         
-        # Verify columns
-        required_cols = [
-            'kabupaten', 'kecamatan', 'tanam (1 - 12 hst)', 
-            'vegetatif 1 (13 - 36 hst)', 'vegetatif 2 (37 - 60 hst)', 
-            'generatif 1 (61 - 84 hst)', 'generatif 2 (85 - 120 hst)', 'panen'
-        ]
-        actual_cols = [str(c).lower().strip() for c in simontadi_data.columns]
+        # Fuzzy column matching for maximum robustness
+        actual_cols_raw = list(simontadi_data.columns)
+        actual_cols_clean = [str(c).lower().replace(' ', '') for c in actual_cols_raw]
         
-        missing_cols = [c for c in required_cols if c not in actual_cols]
+        # Kata kunci pencarian (spasi sudah dihilangkan untuk pencocokan)
+        col_matchers = {
+            'kabupaten': ['kabupaten'],
+            'kecamatan': ['kecamatan', 'namawilayah'],
+            'tanam': ['tanam(1-12', 'tanam'],
+            'veg1': ['vegetatif1', 'veg1'],
+            'veg2': ['vegetatif2', 'veg2'],
+            'gen1': ['generatif1', 'gen1'],
+            'gen2': ['generatif2', 'gen2'],
+            'panen': ['panen']
+        }
+        
+        col_mapping = {}
+        missing_cols = []
+        
+        for key, keywords in col_matchers.items():
+            found = False
+            for i, clean_col in enumerate(actual_cols_clean):
+                if any(kw in clean_col for kw in keywords):
+                    # Khusus panen, pastikan bukan "fase pertanaman" atau "luas panen" jika memungkinkan, 
+                    # tapi karena kita sudah membuang metadata, biasanya aman.
+                    col_mapping[key] = actual_cols_raw[i]
+                    found = True
+                    break
+            if not found:
+                missing_cols.append(key)
+        
         if missing_cols:
-            st.error(f"Kolom berkas tidak sesuai. Kolom wajib yang hilang: {missing_cols}. Pastikan kolom menggunakan format template HST.")
+            st.error(f"Kolom berkas tidak dapat dipetakan secara otomatis. Kategori yang hilang: {missing_cols}. Pastikan format mirip template.")
         else:
-            # Map columns cleanly
-            col_mapping = {c: simontadi_data.columns[i] for i, c in enumerate(actual_cols) if c in required_cols}
-            
             run_batch = st.button("🔮 Jalankan Proses Perhitungan Estimasi & Logistik Massal")
             
             if run_batch:
