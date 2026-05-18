@@ -682,12 +682,11 @@ with col_inp2:
 st.markdown("</div>", unsafe_allow_html=True)
 
 # MAIN TABS
-tab_predict, tab_batch, tab_summary, tab_education, tab_monitoring = st.tabs([
+tab_predict, tab_batch, tab_summary, tab_education = st.tabs([
     "🔮 Estimasi & Instruksi Pasca-Panen",
     "📊 Estimasi Massal Laporan Simontadi 2026",
     "📈 Ringkasan Data Tanam Jateng 2025",
-    "💡 Edukasi Tren Harga & Waktu Jual",
-    "🛠️ Developer Monitoring (Telemetri)"
+    "💡 Edukasi Tren Harga & Waktu Jual"
 ])
 
 # ------------------------------------------
@@ -1145,68 +1144,7 @@ with tab_education:
         )
         st.plotly_chart(fig_edu, use_container_width=True)
 
-# ------------------------------------------
-# TAB 5: DEVELOPER MONITORING (TELEMETRI)
-# ------------------------------------------
-with tab_monitoring:
-    st.markdown("### 🛠️ Developer Monitoring & Telemetri Penggunaan")
-    st.markdown(
-        """
-        Halaman pemantauan internal bagi developer untuk memonitor aktivitas penggunaan aplikasi secara *real-time* 
-        berdasarkan sebaran wilayah aktif (Kecamatan/Kabupaten) dengan mematuhi prinsip **Privacy by Design** (tanpa identitas pribadi).
-        """
-    )
-    
-    st.markdown(
-        f"""
-        <div style="background: rgba(16, 185, 129, 0.1); border-left: 5px solid #10b981; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
-            <h4 style="margin: 0 0 10px 0; color: #10b981;">📡 Status Koneksi Live Google Sheets API</h4>
-            <p style="margin: 0 0 8px 0; color: #cbd5e1; font-size: 0.95rem;">
-                <b>Spreadsheet Target:</b> <a href="https://docs.google.com/spreadsheets/d/15WhpXDecY5QJQDFEu_Uh4fsSLDr3fA7cinSTlLAu8f8/edit?usp=sharing" target="_blank" style="color: #60a5fa; text-decoration: underline;">Buka Google Sheets Laporan</a>
-            </p>
-            <p style="margin: 0 0 8px 0; color: #cbd5e1; font-size: 0.95rem;">
-                <b>Akun Service Account:</b> <code>jateng-harvest-bot@jateng-harvest-monitoring.iam.gserviceaccount.com</code>
-            </p>
-            <p style="margin: 0; color: #34d399; font-size: 0.85rem;">
-                ✔️ Sistem dikonfigurasi menggunakan <code>st.connection('gsheets', type=GSheetsConnection)</code> dengan penanganan error anti-crash dan pencatatan ganda ke CSV lokal.
-            </p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-    
-    col_t1, col_t2 = st.columns(2)
-    
-    with col_t1:
-        st.markdown("#### 📋 Log Aktivitas Penggunaan (Anonymous Logger)")
-        if os.path.exists(TELEMETRY_FILE):
-            df_tele = pd.read_csv(TELEMETRY_FILE)
-            st.dataframe(df_tele.tail(15), use_container_width=True)
-            
-            # Download telemetry
-            csv_bytes_t = df_tele.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📥 Unduh Log Telemetri Penggunaan (CSV)",
-                data=csv_bytes_t,
-                file_name="telemetri_penggunaan.csv",
-                mime="text/csv",
-                key="btn_tele_down"
-            )
-        else:
-            st.info("Log aktivitas masih kosong. Lakukan simulasi perhitungan pada tab pertama untuk mencatat telemetri.")
-            
-    with col_t2:
-        st.markdown("#### 💬 Rekapitulasi Masukan Pengguna (Feedback)")
-        if os.path.exists(FEEDBACK_FILE):
-            df_feed = pd.read_csv(FEEDBACK_FILE)
-            st.dataframe(df_feed.tail(15), use_container_width=True)
-            
-            # Summary count
-            sesuai_count = len(df_feed[df_feed['Sesuai'] == 'Ya'])
-            tidak_count = len(df_feed[df_feed['Sesuai'] == 'Tidak'])
-            st.markdown(f"**Total Sesuai:** {sesuai_count} | **Total Tidak Sesuai:** {tidak_count}")
-        else:
-            st.info("Log masukan pengguna masih kosong.")
+
 
 # Footer credit
 st.markdown("<hr style='border: 1px solid rgba(255,255,255,0.05); margin-top:40px;'>", unsafe_allow_html=True)
