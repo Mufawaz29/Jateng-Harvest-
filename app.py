@@ -356,6 +356,15 @@ def generate_pdf_report(kabupaten, kecamatan, bulan_tanam, luas_tanam, as_prod, 
 # ==========================================
 # LOGICAL HELPER FUNCTIONS (AUTOMATION CORE)
 # ==========================================
+def safe_transform(encoder, label, default_val=-1):
+    """Safely encodes categorical labels. Returns default_val if label is unseen."""
+    try:
+        if label in encoder.classes_:
+            return encoder.transform([label])[0]
+        else:
+            return default_val
+    except Exception:
+        return default_val
 def get_historical_luas_tanam(df, kabupaten, kecamatan, month_num):
     """
     Extracts the average historical Luas Tanam for a given area and month.
@@ -861,11 +870,18 @@ with tab_batch:
     )
     
     # Showcase Template for users to download
-    st.markdown("#### 📥 Contoh/Template Struktur CSV Simontadi")
+    st.markdown("#### 📥 Contoh/Template Struktur CSV Simontadi Operasional (HST)")
     template_data = pd.DataFrame([
-        {"Kabupaten": "Banjarnegara", "Kecamatan": "Banjarmangu", "Bulan": "Mei", "Luas_Tanam": 65.24},
-        {"Kabupaten": "Banyumas", "Kecamatan": "Ajibarang", "Bulan": "Mei", "Luas_Tanam": 405.46},
-        {"Kabupaten": "Batang", "Kecamatan": "Bandar", "Bulan": "Mei", "Luas_Tanam": 177.80}
+        {
+            "Kabupaten": "Banjarnegara", "Kecamatan": "Banjarmangu", 
+            "Tanam (1 - 12 HST)": 65.24, "Vegetatif 1 (13 - 36 HST)": 100.5, "Vegetatif 2 (37 - 60 HST)": 150.2,
+            "Generatif 1 (61 - 84 HST)": 200.0, "Generatif 2 (85 - 120 HST)": 180.5, "Panen": 90.0
+        },
+        {
+            "Kabupaten": "Banyumas", "Kecamatan": "Ajibarang", 
+            "Tanam (1 - 12 HST)": 405.46, "Vegetatif 1 (13 - 36 HST)": 300.0, "Vegetatif 2 (37 - 60 HST)": 250.0,
+            "Generatif 1 (61 - 84 HST)": 150.0, "Generatif 2 (85 - 120 HST)": 100.0, "Panen": 400.0
+        }
     ])
     st.dataframe(template_data, use_container_width=True)
     
@@ -875,15 +891,19 @@ with tab_batch:
         st.dataframe(simontadi_data.head(10), use_container_width=True)
         
         # Verify columns
-        required_cols = ['kabupaten', 'kecamatan', 'bulan', 'luas_tanam']
-        actual_cols = [c.lower() for c in simontadi_data.columns]
+        required_cols = [
+            'kabupaten', 'kecamatan', 'tanam (1 - 12 hst)', 
+            'vegetatif 1 (13 - 36 hst)', 'vegetatif 2 (37 - 60 hst)', 
+            'generatif 1 (61 - 84 hst)', 'generatif 2 (85 - 120 hst)', 'panen'
+        ]
+        actual_cols = [str(c).lower().strip() for c in simontadi_data.columns]
         
         missing_cols = [c for c in required_cols if c not in actual_cols]
         if missing_cols:
-            st.error(f"Kolom berkas tidak sesuai. Kolom wajib yang hilang: {missing_cols}. Pastikan kolom berisi Kabupaten, Kecamatan, Bulan, dan Luas_Tanam.")
+            st.error(f"Kolom berkas tidak sesuai. Kolom wajib yang hilang: {missing_cols}. Pastikan kolom menggunakan format template HST.")
         else:
             # Map columns cleanly
-            col_mapping = {c: simontadi_data.columns[i] for i, c in enumerate(actual_cols)}
+            col_mapping = {c: simontadi_data.columns[i] for i, c in enumerate(actual_cols) if c in required_cols}
             
             run_batch = st.button("🔮 Jalankan Proses Perhitungan Estimasi & Logistik Massal")
             
@@ -892,35 +912,34 @@ with tab_batch:
                     results = []
                     
                     for index, row_data in simontadi_data.iterrows():
-                        row_kab = row_data[col_mapping['kabupaten']]
-                        row_kec = row_data[col_mapping['kecamatan']]
-                        row_bulan = row_data[col_mapping['bulan']]
-                        row_luas_tanam = float(row_data[col_mapping['luas_tanam']])
+                        row_kab = str(row_data[col_mapping['kabupaten']])
+                        row_kec = str(row_data[col_mapping['kecamatan']])
                         
-                        # Identify starting month number
-                        if row_bulan in MONTHS_ID:
-                            month_num = MONTH_MAP_ID_TO_NUM[row_bulan]
-                        else:
-                            # default fallback
-                            month_num = 5
-                            
-                        # Predict next month (Month + 1)
-                        target_month_num = month_num + 1
-                        if target_month_num > 12:
-                            target_month_num -= 12
-                        target_month_name = MONTH_MAP_NUM_TO_ID[target_month_num]
+                        # ETL Feature Alignment
+                        tanam = float(row_data[col_mapping['tanam (1 - 12 hst)']])
+                        veg1 = float(row_data[col_mapping['vegetatif 1 (13 - 36 hst)']])
+                        veg2 = float(row_data[col_mapping['vegetatif 2 (37 - 60 hst)']])
+                        gen1 = float(row_data[col_mapping['generatif 1 (61 - 84 hst)']])
+                        gen2 = float(row_data[col_mapping['generatif 2 (85 - 120 hst)']])
+                        panen_val = float(row_data[col_mapping['panen']])
                         
-                        # Build features
-                        features_dict = construct_prediction_features(df_hist, row_kab, row_kec, month_num, row_luas_tanam, target_month_num)
+                        fase_vegetatif_est = tanam + veg1 + veg2
+                        fase_generatif_est = gen1 + gen2
+                        fase_siap_panen_est = panen_val
+                        luas_tanam = tanam
+                        bulan_angka = datetime.now().month
+                        
+                        kab_enc = safe_transform(le_kab, row_kab)
+                        kec_enc = safe_transform(le_kec, row_kec)
                         
                         feature_vector = [
-                            features_dict['Kab_Enc'],
-                            features_dict['Kec_Enc'],
-                            features_dict['Bulan_Angka'],
-                            features_dict['Luas_Tanam'],
-                            features_dict['Fase_Vegetatif_Est'],
-                            features_dict['Fase_Generatif_Est'],
-                            features_dict['Fase_Siap_Panen_Est']
+                            kab_enc,
+                            kec_enc,
+                            bulan_angka,
+                            luas_tanam,
+                            fase_vegetatif_est,
+                            fase_generatif_est,
+                            fase_siap_panen_est
                         ]
                         
                         try:
@@ -937,10 +956,9 @@ with tab_batch:
                         results.append({
                             "Kabupaten": row_kab,
                             "Kecamatan": row_kec,
-                            "Bulan Tanam": row_bulan,
-                            "Luas Tanam (Ha)": row_luas_tanam,
-                            "Bulan Estimasi Panen": target_month_name,
-                            "Estimasi Luas Panen (Ha)": round(pred_ha, 1),
+                            "Bulan Data (Ekstrak)": bulan_angka,
+                            "Luas Tanam Aktual (Ha)": round(luas_tanam, 2),
+                            "Estimasi Panen Selanjutnya (Ha)": round(pred_ha, 1),
                             "Estimasi Produksi (Ton)": round(tons, 1),
                             "Kebutuhan Karung (Pcs)": sacks,
                             "Kebutuhan Harvester (Unit)": harvesters
