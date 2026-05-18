@@ -439,8 +439,22 @@ def transform_realtime_simotandi(uploaded_file):
             df_clean[key] = df_data.iloc[:, c_idx]
             
         # DUPLIKASI CERDAS AREA: Jika file SIMOTANDI hanya punya 1 kolom wilayah, isi ke dua-duanya!
-        if 'kabupaten' not in df_clean.columns and 'kecamatan' in df_clean.columns:
-            df_clean['kabupaten'] = df_clean['kecamatan']
+        # Namun sebelum itu, coba deteksi Kabupaten dari teks metadata di 20 baris pertama
+        detected_kabupaten = None
+        for i in range(min(20, len(df_uploaded))):
+            row_str = ' '.join(df_uploaded.iloc[i].astype(str)).lower()
+            for kab in le_kab.classes_:
+                if kab.lower() in row_str:
+                    detected_kabupaten = kab
+                    break
+            if detected_kabupaten:
+                break
+                
+        if 'kabupaten' not in df_clean.columns:
+            if detected_kabupaten:
+                df_clean['kabupaten'] = detected_kabupaten
+            elif 'kecamatan' in df_clean.columns:
+                df_clean['kabupaten'] = df_clean['kecamatan']
             
         # Jika kabupaten masih tidak ada, isi otomatis dengan nilai default
         if 'kabupaten' not in df_clean.columns:
