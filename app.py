@@ -436,7 +436,31 @@ def transform_realtime_simotandi(uploaded_file):
         # 4. Bangun dataframe baru yang sudah terstruktur rapi dengan nama standar
         df_clean = pd.DataFrame()
         for key, c_idx in col_indices.items():
-            df_clean[key] = df_data.iloc[:, c_idx]
+            col_data = df_data.iloc[:, c_idx]
+            
+            # KOREKSI PERGESERAN KOLOM MERGED KOSONG (SELF-HEALING LOGIC):
+            # Jika kolom terpilih ternyata kosong/NaN semua di area data (biasanya akibat ketidakselarasan merge cell header vs data),
+            # pindai kolom tetangga terdekat (offset 1, 2, -1, -2) untuk mengambil data sesungguhnya!
+            if col_data.dropna().empty:
+                for offset in [1, 2, -1, -2]:
+                    target_idx = c_idx + offset
+                    if 0 <= target_idx < num_cols:
+                        candidate_data = df_data.iloc[:, target_idx]
+                        if not candidate_data.dropna().empty:
+                            first_val = str(candidate_data.dropna().iloc[0]).strip()
+                            
+                            # Jika mencari wilayah (kabupaten/kecamatan), pastikan kandidat berisi teks bukan angka
+                            if key in ['kabupaten', 'kecamatan']:
+                                if not first_val.replace('.', '', 1).isdigit():
+                                    col_data = candidate_data
+                                    break
+                            # Jika mencari fase numerik, pastikan kandidat berisi angka
+                            else:
+                                if first_val.replace('.', '', 1).isdigit() or first_val.lower() == 'nan':
+                                    col_data = candidate_data
+                                    break
+            
+            df_clean[key] = col_data
             
         # DUPLIKASI CERDAS AREA: Jika file SIMOTANDI hanya punya 1 kolom wilayah, isi ke dua-duanya!
         # Namun sebelum itu, coba deteksi Kabupaten dari teks metadata di 20 baris pertama
