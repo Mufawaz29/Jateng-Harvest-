@@ -485,6 +485,81 @@ def get_3_month_predictions(df, kabupaten, kecamatan, current_month_name, curren
     return predictions
 
 # ==========================================
+# DEVELOPER DASHBOARD (SECRET VIEW)
+# ==========================================
+if st.query_params.get("view") == "developer":
+    st.markdown(
+        """
+        <div class="header-card" style="text-align: center; padding: 20px;">
+            <h1 style="margin: 0; color: #10b981;">👨‍💻 Dashboard Monitoring Internal Developer</h1>
+            <p style="margin: 10px 0 0 0; color: #cbd5e1;">Pemantauan live data aktivitas prediksi dari Google Sheets jateng_proyek.</p>
+        </div>
+        """, 
+        unsafe_allow_html=True
+    )
+    
+    try:
+        # Menghubungkan ke Google Sheets melalui GSheetsConnection
+        conn = st.connection("gsheets", type=GSheetsConnection)
+        
+        # Membaca data yang sudah ada di worksheet "Sheet1" secara langsung
+        dev_df = conn.read(spreadsheet=SPREADSHEET_URL, worksheet="Sheet1", ttl=0)
+        
+        if not dev_df.empty and "Waktu" in dev_df.columns:
+            # Statistik total hitungan prediksi
+            total_predictions = len(dev_df)
+            st.markdown(
+                f"""
+                <div class="glass-card" style="text-align: center; border-top: 4px solid #10b981 !important;">
+                    <span style="font-size:1rem; color:#94a3b8; font-weight:600; text-transform:uppercase;">Total Hitungan Prediksi Petani</span>
+                    <div style="font-size:3rem; color:#10b981; font-weight:800; margin:10px 0;">{total_predictions:,}</div>
+                </div>
+                """, 
+                unsafe_allow_html=True
+            )
+            
+            col_d1, col_d2 = st.columns([1, 2])
+            
+            with col_d1:
+                st.markdown("### 📊 Top Kecamatan Akses Terbanyak")
+                if "Kecamatan" in dev_df.columns:
+                    top_kec = dev_df["Kecamatan"].value_counts().reset_index()
+                    top_kec.columns = ["Kecamatan", "Jumlah_Akses"]
+                    # Limit to top 10 for better visualization
+                    top_kec = top_kec.head(10)
+                    
+                    fig_kec = px.bar(
+                        top_kec, x="Jumlah_Akses", y="Kecamatan", orientation='h',
+                        color="Jumlah_Akses", color_continuous_scale="Viridis"
+                    )
+                    fig_kec.update_layout(
+                        paper_bgcolor='rgba(0,0,0,0)',
+                        plot_bgcolor='rgba(0,0,0,0)',
+                        font_color='#cbd5e1',
+                        yaxis={'categoryorder': 'total ascending'},
+                        margin=dict(l=0, r=0, t=0, b=0),
+                        height=350
+                    )
+                    st.plotly_chart(fig_kec, use_container_width=True)
+                else:
+                    st.info("Kolom 'Kecamatan' belum tersedia di Google Sheets.")
+                    
+            with col_d2:
+                st.markdown("### 📋 Riwayat Telemetri Live (Jateng_Proyek)")
+                # Show latest data first
+                st.dataframe(dev_df.sort_values(by="Waktu", ascending=False), use_container_width=True, height=400)
+                
+        else:
+            st.info("Koneksi Google Sheets berhasil, namun data aktivitas masih kosong.")
+            
+    except Exception as e:
+        st.error(f"Gagal mengambil data dari Google Sheets API: {e}")
+        st.warning("⚠️ Pastikan Google Sheets tidak sedang limit dan email Service Account sudah diset sebagai Editor.")
+
+    # Menghentikan eksekusi kode di sini agar tampilan publik (Petani) tidak ikut di-render
+    st.stop()
+
+# ==========================================
 # NAVIGATION & SIDEBAR MANAGEMENT
 # ==========================================
 st.sidebar.markdown(
