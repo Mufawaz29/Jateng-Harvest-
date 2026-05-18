@@ -456,6 +456,16 @@ def transform_realtime_simotandi(uploaded_file):
             elif 'kecamatan' in df_clean.columns:
                 df_clean['kabupaten'] = df_clean['kecamatan']
             
+        # DEBUG LIVE EXPANDER FOR DEVELOPER (SANGAT BERGUNA UNTUK DIAGNOSIS!)
+        with st.expander("🛠️ Live ETL Debugger (Developer Mode)", expanded=True):
+            st.write("### 🔍 Hasil Pemindaian Kolom (Vertical Scanning):")
+            st.json(col_indices)
+            st.write("### 📊 Metadata Terdeteksi:")
+            st.write(f"- Detected Kabupaten dari Metadata: **{detected_kabupaten}**")
+            st.write(f"- Data Start Row Index: **{data_start_idx}**")
+            st.write("### 📈 Struktur Data Bersih (Sebelum Dropna & Filter Provinsi):")
+            st.dataframe(df_clean.head(10), use_container_width=True)
+            
         # Jika kabupaten masih tidak ada, isi otomatis dengan nilai default
         if 'kabupaten' not in df_clean.columns:
             df_clean['kabupaten'] = "Tidak Diketahui"
