@@ -393,7 +393,18 @@ def transform_realtime_simotandi(uploaded_file):
             df_uploaded = df_uploaded.iloc[header_idx + 1:].reset_index(drop=True)
             
         # Clean columns: lowercase, replace \n, strip whitespace
-        df_uploaded.columns = df_uploaded.columns.astype(str).str.lower().str.replace('\n', ' ').str.strip()
+        raw_cols = df_uploaded.columns.astype(str).str.lower().str.replace('\n', ' ').str.strip()
+        
+        # Deduplicate columns to prevent PyArrow ValueError in Streamlit
+        new_cols = []
+        for i, col in enumerate(raw_cols):
+            # Jika kolom bernama 'nan', kosong, atau sudah ada di daftar new_cols
+            if col == 'nan' or col == '' or col in new_cols:
+                new_cols.append(f"{col}_{i}")
+            else:
+                new_cols.append(col)
+                
+        df_uploaded.columns = new_cols
         
         return df_uploaded
     except Exception as e:
