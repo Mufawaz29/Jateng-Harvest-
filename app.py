@@ -380,14 +380,15 @@ def transform_realtime_simotandi(uploaded_file):
             
         # 1. Tentukan indeks kolom menggunakan Vertical Scanning (20 baris pertama)
         col_indices = {}
+        # Gunakan array dari berbagai kemungkinan nama kolom (cukup salah satu match = valid)
         col_matchers = {
             'kabupaten': ['kabupaten'],
-            'kecamatan': ['kecamatan', 'nama wilayah'],
-            'tanam': ['tanam', '12'],
-            'veg1': ['vegetatif', '13'],
-            'veg2': ['vegetatif', '37'],
-            'gen1': ['generatif', '61'],
-            'gen2': ['generatif', '85'],
+            'kecamatan': ['kecamatan', 'nama wilayah', 'wilayah'],
+            'tanam': ['tanam (1', 'tanam(1', 'tanam'],
+            'veg1': ['vegetatif 1', 'vegetatif1', '13 -', '13-'],
+            'veg2': ['vegetatif 2', 'vegetatif2', '37 -', '37-'],
+            'gen1': ['generatif 1', 'generatif1', '61 -', '61-'],
+            'gen2': ['generatif 2', 'generatif2', '85 -', '85-'],
             'panen': ['panen'] 
         }
         
@@ -398,19 +399,17 @@ def transform_realtime_simotandi(uploaded_file):
             
             for key, keywords in col_matchers.items():
                 if key not in col_indices:
-                    # Khusus kecamatan, jika ada dua kata kunci, cek salah satunya saja (OR)
-                    if key == 'kecamatan':
-                        if any(kw in col_header_text for kw in keywords):
-                            col_indices[key] = c
-                    else:
-                        # Sisanya cek semua kata kunci (AND)
-                        if all(kw in col_header_text for kw in keywords):
-                            col_indices[key] = c
+                    # Cek apakah ada satupun keyword yang cocok (ANY)
+                    if any(kw in col_header_text for kw in keywords):
+                        # Pengecualian kolom: hindari kolom rekap agregat awal
+                        if 'luas sawah' in col_header_text or 'bera' in col_header_text or 'baku' in col_header_text:
+                            continue
+                            
+                        col_indices[key] = c
                         
         # Pastikan kolom utama minimal ditemukan
         if 'kecamatan' not in col_indices or 'tanam' not in col_indices:
-            # Kembalikan dataframe utuh (fallback ke mode lama) jika parser ini gagal
-            # Kita bersihkan nama kolom mode lama
+            # Kembalikan dataframe utuh (fallback ke mode lama) jika parser ini gagal total
             df_uploaded.columns = df_uploaded.iloc[0]
             df_uploaded = df_uploaded.iloc[1:].reset_index(drop=True)
             df_uploaded.columns = df_uploaded.columns.astype(str).str.lower().str.replace('\n', ' ').str.strip()
@@ -439,12 +438,20 @@ def transform_realtime_simotandi(uploaded_file):
         for key, c_idx in col_indices.items():
             df_clean[key] = df_data.iloc[:, c_idx]
             
-        # Jika kabupaten tidak ada, isi otomatis dengan nilai default
+        # DUPLIKASI CERDAS AREA: Jika file SIMOTANDI hanya punya 1 kolom wilayah, isi ke dua-duanya!
+        if 'kabupaten' not in df_clean.columns and 'kecamatan' in df_clean.columns:
+            df_clean['kabupaten'] = df_clean['kecamatan']
+            
+        # Jika kabupaten masih tidak ada, isi otomatis dengan nilai default
         if 'kabupaten' not in df_clean.columns:
             df_clean['kabupaten'] = "Tidak Diketahui"
             
-        # Buang baris jika 'kecamatan' nya kosong (karena ini baris spasi di excel)
+        # Buang baris spasi atau nan
         df_clean = df_clean.dropna(subset=['kecamatan'])
+        
+        # FILTER TOTAL PROVINSI: Buang baris "Jawa Tengah" agar tidak diprediksi sebagai kecamatan
+        invalid_areas = ['jawa tengah', 'total', 'jumlah', 'provinsi']
+        df_clean = df_clean[~df_clean['kecamatan'].astype(str).str.lower().str.strip().isin(invalid_areas)]
             
         return df_clean
         
