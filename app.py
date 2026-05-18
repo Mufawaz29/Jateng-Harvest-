@@ -383,7 +383,7 @@ def transform_realtime_simotandi(uploaded_file):
         # Gunakan array dari berbagai kemungkinan nama kolom (cukup salah satu match = valid)
         col_matchers = {
             'kabupaten': ['kabupaten'],
-            'kecamatan': ['kecamatan', 'nama wilayah', 'wilayah'],
+            'kecamatan': ['kecamatan', 'nama wilayah'], # Hapus 'wilayah' agar tidak tabrakan dengan 'Kode Wilayah'
             'tanam': ['tanam (1', 'tanam(1', 'tanam'],
             'veg1': ['vegetatif 1', 'vegetatif1', '13 -', '13-'],
             'veg2': ['vegetatif 2', 'vegetatif2', '37 -', '37-'],
@@ -397,14 +397,14 @@ def transform_realtime_simotandi(uploaded_file):
             # Gabungkan 20 baris teratas dari kolom ini menjadi satu string panjang
             col_header_text = ' '.join(df_uploaded.iloc[:20, c].astype(str)).lower().replace('\n', ' ')
             
+            # SANITASI: Hapus kata-kata pengecoh dari judul besar/agregat (misal judul file di baris 1)
+            # Ini mencegah keyword 'tanam' menyangkut di kata 'pertanaman', dan 'panen' di 'luas panen'
+            col_header_text = col_header_text.replace('pertanaman', '').replace('luas panen', '').replace('luas baku sawah', '')
+            
             for key, keywords in col_matchers.items():
                 if key not in col_indices:
                     # Cek apakah ada satupun keyword yang cocok (ANY)
                     if any(kw in col_header_text for kw in keywords):
-                        # Pengecualian kolom: hindari kolom rekap agregat awal
-                        if 'luas sawah' in col_header_text or 'bera' in col_header_text or 'baku' in col_header_text:
-                            continue
-                            
                         col_indices[key] = c
                         
         # Pastikan kolom utama minimal ditemukan
