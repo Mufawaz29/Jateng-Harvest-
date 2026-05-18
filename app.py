@@ -357,14 +357,48 @@ def generate_pdf_report(kabupaten, kecamatan, bulan_tanam, luas_tanam, as_prod, 
 # LOGICAL HELPER FUNCTIONS (AUTOMATION CORE)
 # ==========================================
 def safe_transform(encoder, label, default_val=-1):
-    """Safely encodes categorical labels. Returns default_val if label is unseen."""
+    """Safely encodes categorical labels with robust string cleaning."""
     try:
-        if label in encoder.classes_:
-            return encoder.transform([label])[0]
+        clean_label = str(label).strip().title()
+        if clean_label in encoder.classes_:
+            return encoder.transform([clean_label])[0]
         else:
             return default_val
     except Exception:
         return default_val
+
+def transform_realtime_simotandi(uploaded_file):
+    """
+    ETL function to parse raw SIMOTANDI files.
+    - Dynamically skips metadata rows.
+    - Cleans column names (lowercase, strips, replaces newline).
+    """
+    try:
+        if uploaded_file.name.endswith('.csv'):
+            df_uploaded = pd.read_csv(uploaded_file, header=None)
+        else:
+            df_uploaded = pd.read_excel(uploaded_file, header=None)
+            
+        header_idx = -1
+        # Find the actual header row dynamically
+        for i, row in df_uploaded.iterrows():
+            row_str = ' '.join(row.astype(str)).lower()
+            if 'kabupaten' in row_str or 'kecamatan' in row_str or 'no' in row_str:
+                header_idx = i
+                break
+                
+        if header_idx != -1:
+            # Set the header and drop previous rows
+            df_uploaded.columns = df_uploaded.iloc[header_idx]
+            df_uploaded = df_uploaded.iloc[header_idx + 1:].reset_index(drop=True)
+            
+        # Clean columns: lowercase, replace \n, strip whitespace
+        df_uploaded.columns = df_uploaded.columns.astype(str).str.lower().str.replace('\n', ' ').str.strip()
+        
+        return df_uploaded
+    except Exception as e:
+        st.error(f"Gagal memparsing file mentah: {e}")
+        return None
 def get_historical_luas_tanam(df, kabupaten, kecamatan, month_num):
     """
     Extracts the average historical Luas Tanam for a given area and month.
@@ -647,14 +681,9 @@ st.markdown(
 # Handle file upload processing if present
 simontadi_data = None
 if uploaded_file is not None:
-    try:
-        if uploaded_file.name.endswith('.csv'):
-            simontadi_data = pd.read_csv(uploaded_file)
-        else:
-            simontadi_data = pd.read_excel(uploaded_file)
-        st.success(f"✔️ Berkas '{uploaded_file.name}' berhasil diunggah! Sistem siap memproses batch prediksi.")
-    except Exception as e:
-        st.error(f"Gagal membaca berkas: {e}")
+    simontadi_data = transform_realtime_simotandi(uploaded_file)
+    if simontadi_data is not None:
+        st.success(f"✔️ Berkas '{uploaded_file.name}' berhasil diunggah dan dibersihkan! Sistem siap memproses batch prediksi.")
 
 # Bagian 2: Area Input (Tengah Atas)
 st.markdown("<div style='background: rgba(30, 41, 59, 0.6); padding: 25px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 30px;'>", unsafe_allow_html=True)
@@ -926,7 +955,7 @@ with tab_batch:
                         fase_vegetatif_est = tanam + veg1 + veg2
                         fase_generatif_est = gen1 + gen2
                         fase_siap_panen_est = panen_val
-                        luas_tanam = tanam
+                        luas_tanam = tanam + veg1
                         bulan_angka = datetime.now().month
                         
                         kab_enc = safe_transform(le_kab, row_kab)
