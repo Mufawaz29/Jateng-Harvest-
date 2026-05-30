@@ -30,24 +30,24 @@ if os.path.exists(bg_img_path):
     with open(bg_img_path, "rb") as f:
         encoded_bg = base64.b64encode(f.read()).decode()
     bg_img_css = f"""
-    /* Background image with living agricultural warm glassmorphic overlay */
+    /* Background image with fresh, light living agricultural glassmorphic overlay */
     .stApp {{
-        background: linear-gradient(rgba(10, 25, 15, 0.82), rgba(15, 23, 42, 0.94)), url("data:image/png;base64,{encoded_bg}") !important;
+        background: linear-gradient(rgba(240, 253, 244, 0.85), rgba(254, 252, 232, 0.9)), url("data:image/png;base64,{encoded_bg}") !important;
         background-size: cover !important;
         background-position: center center !important;
         background-attachment: fixed !important;
-        color: #f1f5f9;
+        color: #2c3e50;
     }}
     """
 else:
     bg_img_css = """
-    .stApp {{
-        background: radial-gradient(circle at 50% 10%, #1e293b 0%, #0f172a 70%);
-        color: #f1f5f9;
-    }}
+    .stApp {
+        background: linear-gradient(135deg, #f0fdf4 0%, #fefcf3 50%, #f0fdf4 100%);
+        color: #2c3e50;
+    }
     """
 
-# Custom premium styling with Glassmorphism, tailored animations, and high-end colors
+# Custom premium styling with Glassmorphism, tailored animations, and high-end light agricultural colors
 custom_css = """
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
@@ -59,53 +59,60 @@ custom_css = """
     h1, h2, h3, h4, h5, h6 {
         font-family: 'Outfit', sans-serif;
         font-weight: 700;
-        color: #ffffff;
+        color: #0f2d1a !important;
     }
 
     /* Sidebar Glassmorphism styling */
     [data-testid="stSidebar"] {
-        background-color: rgba(15, 23, 42, 0.85) !important;
+        background-color: rgba(255, 255, 255, 0.9) !important;
         backdrop-filter: blur(20px) !important;
-        border-right: 1px solid rgba(255, 255, 255, 0.05);
+        border-right: 1px solid rgba(16, 185, 129, 0.15);
+    }
+    
+    [data-testid="stSidebar"] * {
+        color: #1e293b !important;
     }
     
     /* Header card */
     .header-card {
-        background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(245, 158, 11, 0.1) 100%);
-        border: 1px solid rgba(16, 185, 129, 0.25);
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(245, 158, 11, 0.08) 100%);
+        border: 1px solid rgba(16, 185, 129, 0.2);
         padding: 30px;
         border-radius: 20px;
         margin-bottom: 25px;
-        box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+        box-shadow: 0 10px 30px -10px rgba(16, 185, 129, 0.1);
         backdrop-filter: blur(12px);
     }
 
     /* General Glassmorphism container */
     .glass-card {
-        background: rgba(30, 41, 59, 0.6) !important;
+        background: rgba(255, 255, 255, 0.8) !important;
         backdrop-filter: blur(12px) !important;
-        border: 1px solid rgba(255, 255, 255, 0.05) !important;
+        border: 1px solid rgba(16, 185, 129, 0.15) !important;
         padding: 24px;
         border-radius: 16px;
         margin-bottom: 20px;
-        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        box-shadow: 0 8px 32px 0 rgba(16, 185, 129, 0.06);
+        color: #1e293b !important;
     }
 
     /* Recommendation card micro-animations */
     .rec-card {
-        background: rgba(15, 23, 42, 0.5);
-        border: 1px solid rgba(255, 255, 255, 0.03);
+        background: rgba(255, 255, 255, 0.95);
+        border: 1px solid rgba(16, 185, 129, 0.1);
         border-left: 5px solid #10b981;
         padding: 16px 20px;
         border-radius: 12px;
         margin-bottom: 12px;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.04);
+        color: #1e293b !important;
     }
     .rec-card:hover {
         transform: translateY(-4px) scale(1.01);
-        background: rgba(30, 41, 59, 0.7);
-        border-color: rgba(16, 185, 129, 0.2);
-        box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.4);
+        background: rgba(240, 253, 244, 0.95);
+        border-color: rgba(16, 185, 129, 0.3);
+        box-shadow: 0 10px 20px -5px rgba(16, 185, 129, 0.15);
     }
     
     .rec-card-gold {
@@ -119,13 +126,13 @@ custom_css = """
     .metric-val {
         font-size: 2.2rem;
         font-weight: 800;
-        background: linear-gradient(90deg, #10b981, #34d399);
+        background: linear-gradient(90deg, #047857, #10b981);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         margin-bottom: 4px;
     }
     .metric-val-gold {
-        background: linear-gradient(90deg, #f59e0b, #fbbf24) !important;
+        background: linear-gradient(90deg, #d97706, #f59e0b) !important;
         -webkit-background-clip: text !important;
         -webkit-text-fill-color: transparent !important;
     }
@@ -138,13 +145,13 @@ custom_css = """
         font-weight: 600 !important;
         padding: 12px 24px !important;
         border-radius: 12px !important;
-        box-shadow: 0 4px 15px -3px rgba(16, 185, 129, 0.4) !important;
+        box-shadow: 0 4px 15px -3px rgba(16, 185, 129, 0.3) !important;
         transition: all 0.2s ease-in-out !important;
         width: 100%;
     }
     .stButton>button:hover {
         transform: translateY(-2px) !important;
-        box-shadow: 0 8px 25px -5px rgba(16, 185, 129, 0.6) !important;
+        box-shadow: 0 8px 25px -5px rgba(16, 185, 129, 0.5) !important;
     }
     .stButton>button:active {
         transform: translateY(1px) !important;
@@ -153,7 +160,7 @@ custom_css = """
     /* Subtext formatting */
     .sub-text {
         font-size: 0.85rem;
-        color: #94a3b8;
+        color: #475569;
     }
 </style>
 """
@@ -482,8 +489,8 @@ if st.query_params.get("view") == "developer-access":
     st.markdown(
         """
         <div class="header-card" style="text-align: center; padding: 20px;">
-            <h1 style="margin: 0; color: #10b981;">👨‍💻 Autentikasi Internal Developer</h1>
-            <p style="margin: 10px 0 0 0; color: #cbd5e1;">Akses terbatas. Silakan masukkan password/token pengembang.</p>
+            <h1 style="margin: 0; color: #047857;">👨‍💻 Autentikasi Internal Developer</h1>
+            <p style="margin: 10px 0 0 0; color: #475569;">Akses terbatas. Silakan masukkan password/token pengembang.</p>
         </div>
         """, 
         unsafe_allow_html=True
@@ -524,8 +531,8 @@ if st.query_params.get("view") == "developer-access":
             st.markdown(
                 f"""
                 <div class="glass-card" style="text-align: center; border-top: 4px solid #10b981 !important;">
-                    <span style="font-size:1rem; color:#94a3b8; font-weight:600; text-transform:uppercase;">Total Hitungan Prediksi Petani</span>
-                    <div style="font-size:3rem; color:#10b981; font-weight:800; margin:10px 0;">{total_predictions:,}</div>
+                    <span style="font-size:1rem; color:#475569; font-weight:600; text-transform:uppercase;">Total Hitungan Prediksi Petani</span>
+                    <div style="font-size:3rem; color:#047857; font-weight:800; margin:10px 0;">{total_predictions:,}</div>
                 </div>
                 """, 
                 unsafe_allow_html=True
@@ -548,7 +555,7 @@ if st.query_params.get("view") == "developer-access":
                     fig_kec.update_layout(
                         paper_bgcolor='rgba(0,0,0,0)',
                         plot_bgcolor='rgba(0,0,0,0)',
-                        font_color='#cbd5e1',
+                        font_color='#1e293b',
                         yaxis={'categoryorder': 'total ascending'},
                         margin=dict(l=0, r=0, t=0, b=0),
                         height=350
@@ -626,13 +633,13 @@ st.sidebar.markdown(
 st.markdown(
     """
     <div class="header-card" style="text-align: center; padding: 30px 20px; border-radius: 16px; margin-bottom: 25px;">
-        <span style="background-color: #10b981; color: #0f172a; padding: 6px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">
+        <span style="background-color: #047857; color: #ffffff; padding: 6px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">
             Sugeng Rawuh Wonten ing Jateng Harvest! 🌾
         </span>
-        <h1 style="margin: 20px 0 10px 0; font-size: 2.2rem; letter-spacing: -0.5px; color: #ffffff;">
+        <h1 style="margin: 20px 0 10px 0; font-size: 2.2rem; letter-spacing: -0.5px; color: #0f2d1a;">
             Badhe ngecek persiapan panen teng kecamatan pundi dinten niki?
         </h1>
-        <p style="margin: 0; color: #cbd5e1; font-size: 1.1rem; line-height: 1.6;">
+        <p style="margin: 0; color: #334155; font-size: 1.1rem; line-height: 1.6;">
             Aplikasi niki mbantu panjenengan ngitung kabutuhan logistik panen (karung, tenaga buruh, lan mesin) supados asil panenipun sae lan mboten rugi.
         </p>
     </div>
@@ -641,8 +648,8 @@ st.markdown(
 )
 
 # Bagian 2: Area Input (Tengah Atas)
-st.markdown("<div style='background: rgba(30, 41, 59, 0.6); padding: 25px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 30px;'>", unsafe_allow_html=True)
-st.markdown("<h3 style='margin-top:0; color:#10b981;'>📍 Pilih Wilayah Lahan Anda</h3>", unsafe_allow_html=True)
+st.markdown("<div style='background: rgba(255, 255, 255, 0.85); padding: 25px; border-radius: 16px; border: 1px solid rgba(16, 185, 129, 0.15); margin-bottom: 30px;'>", unsafe_allow_html=True)
+st.markdown("<h3 style='margin-top:0; color:#047857;'>📍 Pilih Wilayah Lahan Anda</h3>", unsafe_allow_html=True)
 
 if not df_hist.empty:
     list_kabupaten = sorted(df_hist['Kabupaten'].unique())
@@ -661,8 +668,8 @@ else:
 with col_loc2:
     selected_kec = st.selectbox("Kecamatan:", list_kecamatan)
 
-st.markdown("<hr style='border: 1px solid rgba(255,255,255,0.05); margin: 20px 0;'>", unsafe_allow_html=True)
-st.markdown("<h3 style='margin-top:0; color:#f59e0b;'>🌱 Kondisi Lahan Terkini</h3>", unsafe_allow_html=True)
+st.markdown("<hr style='border: 1px solid rgba(16, 185, 129, 0.15); margin: 20px 0;'>", unsafe_allow_html=True)
+st.markdown("<h3 style='margin-top:0; color:#d97706;'>🌱 Kondisi Lahan Terkini</h3>", unsafe_allow_html=True)
 
 col_inp1, col_inp2 = st.columns(2)
 with col_inp1:
@@ -696,7 +703,7 @@ with tab_predict:
     with col_sum_info:
         st.markdown(
             f"""
-            <div style="background: rgba(255,255,255,0.02); padding: 12px 20px; border-radius:12px; border:1px solid rgba(255,255,255,0.03);">
+            <div style="background: rgba(255, 255, 255, 0.75); padding: 12px 20px; border-radius:12px; border:1px solid rgba(16, 185, 129, 0.15); color: #1e293b;">
                 📅 <b>Bulan Input:</b> {selected_month} &nbsp;|&nbsp; 
                 🌱 <b>Luas Tanam:</b> {manual_luas_tanam:,.1f} Ha &nbsp;|&nbsp;
                 ⚙️ <b>Asumsi Produktivitas:</b> {productivity_rate:.1f} Ton/Ha
@@ -728,9 +735,9 @@ with tab_predict:
         st.markdown(
             f"""
             <div class="glass-card" style="border-top: 4px solid #f59e0b !important; text-align: center;">
-                <span style="font-size:0.8rem; color:#f59e0b; font-weight:700; text-transform:uppercase;">ESTIMASI HASIL</span>
-                <div style="font-size:2.2rem; color:#facc15; font-weight:800; margin:10px 0;">{total_est_ton:,.1f} Ton</div>
-                <p style="font-size:0.85rem; color:#cbd5e1; margin:0;">Dari total {total_est_ha:,.1f} Hektar panen</p>
+                <span style="font-size:0.8rem; color:#b45309; font-weight:700; text-transform:uppercase;">ESTIMASI HASIL</span>
+                <div style="font-size:2.2rem; color:#d97706; font-weight:800; margin:10px 0;">{total_est_ton:,.1f} Ton</div>
+                <p style="font-size:0.85rem; color:#475569; margin:0;">Dari total {total_est_ha:,.1f} Hektar panen</p>
             </div>
             """,
             unsafe_allow_html=True
@@ -739,9 +746,9 @@ with tab_predict:
         st.markdown(
             f"""
             <div class="glass-card" style="border-top: 4px solid #10b981 !important; text-align: center;">
-                <span style="font-size:0.8rem; color:#10b981; font-weight:700; text-transform:uppercase;">BUTUH KARUNG</span>
-                <div style="font-size:2.2rem; color:#facc15; font-weight:800; margin:10px 0;">{int(total_karung):,} Lembar</div>
-                <p style="font-size:0.85rem; color:#cbd5e1; margin:0;">Kapasitas karung 50 Kg</p>
+                <span style="font-size:0.8rem; color:#047857; font-weight:700; text-transform:uppercase;">BUTUH KARUNG</span>
+                <div style="font-size:2.2rem; color:#059669; font-weight:800; margin:10px 0;">{int(total_karung):,} Lembar</div>
+                <p style="font-size:0.85rem; color:#475569; margin:0;">Kapasitas karung 50 Kg</p>
             </div>
             """,
             unsafe_allow_html=True
@@ -750,9 +757,9 @@ with tab_predict:
         st.markdown(
             f"""
             <div class="glass-card" style="border-top: 4px solid #3b82f6 !important; text-align: center;">
-                <span style="font-size:0.8rem; color:#3b82f6; font-weight:700; text-transform:uppercase;">BUTUH BURUH</span>
-                <div style="font-size:2.2rem; color:#facc15; font-weight:800; margin:10px 0;">{total_buruh:,} Orang</div>
-                <p style="font-size:0.85rem; color:#cbd5e1; margin:0;">Tenaga panen & angkut</p>
+                <span style="font-size:0.8rem; color:#1d4ed8; font-weight:700; text-transform:uppercase;">BUTUH BURUH</span>
+                <div style="font-size:2.2rem; color:#2563eb; font-weight:800; margin:10px 0;">{total_buruh:,} Orang</div>
+                <p style="font-size:0.85rem; color:#475569; margin:0;">Tenaga panen & angkut</p>
             </div>
             """,
             unsafe_allow_html=True
@@ -768,21 +775,22 @@ with tab_predict:
     fig_line.add_trace(go.Scatter(
         x=months_plot,
         y=preds_plot,
-        line=dict(color='#facc15', width=4),
-        marker=dict(size=12, color='#10b981'),
+        line=dict(color='#d97706', width=4),
+        marker=dict(size=12, color='#059669'),
         mode='lines+markers+text',
         text=[f"{p:,.1f} Ha" for p in preds_plot],
+        textfont=dict(color='#1e293b'),
         textposition="top center",
         name="Luas Panen"
     ))
     fig_line.update_layout(
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
-        font_color='#cbd5e1',
+        font_color='#1e293b',
         margin=dict(l=30, r=30, t=20, b=30),
         height=280,
         xaxis=dict(showgrid=False),
-        yaxis=dict(title="Hektar (Ha)", showgrid=True, gridcolor='rgba(255,255,255,0.05)')
+        yaxis=dict(title="Hektar (Ha)", showgrid=True, gridcolor='rgba(16, 185, 129, 0.15)')
     )
     st.plotly_chart(fig_line, use_container_width=True)
 
@@ -799,9 +807,9 @@ with tab_predict:
             
             st.markdown(
                 f"""
-                <div style="background: rgba(255,255,255,0.02); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);">
-                    <p style="margin: 0 0 10px 0; font-size: 1.1rem; color: #10b981;"><b>Instruksi Kerja Bulan {pred['Bulan_Nama']}:</b></p>
-                    <ul style="padding-left: 20px; color: #cbd5e1; line-height: 1.8;">
+                <div style="background: rgba(255,255,255,0.7); padding: 20px; border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.15); color: #1e293b;">
+                    <p style="margin: 0 0 10px 0; font-size: 1.1rem; color: #047857;"><b>Instruksi Kerja Bulan {pred['Bulan_Nama']}:</b></p>
+                    <ul style="padding-left: 20px; color: #334155; line-height: 1.8;">
                         <li>Perkiraan panen seluas <b>{ha:,.1f} Hektar</b> (sekitar <b>{tons:,.1f} Ton</b> gabah basah).</li>
                         <li><b>Karung:</b> Pesan <b>{sacks:,}</b> lembar karung dari sekarang.</li>
                         <li><b>Alat Mesin:</b> Hubungi penyedia sewa untuk <b>{harv}</b> unit mesin <i>Combine Harvester</i>.</li>
@@ -868,7 +876,7 @@ with tab_community:
             st.markdown(
                 f"""
                 <div class="glass-card" style="text-align: center; border-left: 5px solid #10b981;">
-                    <span style="font-size:0.8rem; color:#94a3b8; font-weight:700; text-transform:uppercase;">TOTAL LUAS TANAM WILAYAH</span>
+                    <span style="font-size:0.8rem; color:#475569; font-weight:700; text-transform:uppercase;">TOTAL LUAS TANAM WILAYAH</span>
                     <div class="metric-val" style="margin:10px 0 0 0;">{tot_luas_tanam:,.1f} Ha</div>
                 </div>
                 """,
@@ -878,7 +886,7 @@ with tab_community:
             st.markdown(
                 f"""
                 <div class="glass-card" style="text-align: center; border-left: 5px solid #f59e0b;">
-                    <span style="font-size:0.8rem; color:#94a3b8; font-weight:700; text-transform:uppercase;">TOTAL LUAS PANEN WILAYAH</span>
+                    <span style="font-size:0.8rem; color:#475569; font-weight:700; text-transform:uppercase;">TOTAL LUAS PANEN WILAYAH</span>
                     <div class="metric-val metric-val-gold" style="margin:10px 0 0 0;">{tot_luas_panen:,.1f} Ha</div>
                 </div>
                 """,
@@ -888,8 +896,8 @@ with tab_community:
             st.markdown(
                 f"""
                 <div class="glass-card" style="text-align: center; border-left: 5px solid #3b82f6;">
-                    <span style="font-size:0.8rem; color:#94a3b8; font-weight:700; text-transform:uppercase;">RATA-RATA LAHAN SIAP PANEN</span>
-                    <div class="metric-val" style="color:#3b82f6; margin:10px 0 0 0;">{avg_fase_siap:,.1f} Ha</div>
+                    <span style="font-size:0.8rem; color:#475569; font-weight:700; text-transform:uppercase;">RATA-RATA LAHAN SIAP PANEN</span>
+                    <div class="metric-val" style="color:#1d4ed8; margin:10px 0 0 0;">{avg_fase_siap:,.1f} Ha</div>
                 </div>
                 """,
                 unsafe_allow_html=True
@@ -905,21 +913,21 @@ with tab_community:
         fig_cycle.add_trace(go.Scatter(
             x=df_kec_monthly['Bulan'], y=df_kec_monthly['Luas_Tanam'],
             mode='lines+markers', name='Luas Tanam (🌱)',
-            line=dict(color='#10b981', width=3)
+            line=dict(color='#059669', width=3)
         ))
         fig_cycle.add_trace(go.Scatter(
             x=df_kec_monthly['Bulan'], y=df_kec_monthly['Luas_Panen'],
             mode='lines+markers', name='Luas Panen (🌾)',
-            line=dict(color='#f59e0b', width=3, dash='dash')
+            line=dict(color='#d97706', width=3, dash='dash')
         ))
         fig_cycle.update_layout(
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
-            font_color='#cbd5e1',
+            font_color='#1e293b',
             margin=dict(l=20, r=20, t=20, b=20),
             height=300,
             xaxis=dict(showgrid=False),
-            yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)'),
+            yaxis=dict(showgrid=True, gridcolor='rgba(16, 185, 129, 0.15)'),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         st.plotly_chart(fig_cycle, use_container_width=True)
@@ -945,21 +953,21 @@ with tab_community:
             fig_kab.add_trace(go.Scatter(
                 x=df_kab_monthly['Bulan'], y=df_kab_monthly['Luas_Tanam'],
                 mode='lines+markers', name='Luas Tanam Rata-rata (🌱)',
-                line=dict(color='#10b981', width=3)
+                line=dict(color='#059669', width=3)
             ))
             fig_kab.add_trace(go.Scatter(
                 x=df_kab_monthly['Bulan'], y=df_kab_monthly['Luas_Panen'],
                 mode='lines+markers', name='Luas Panen Rata-rata (🌾)',
-                line=dict(color='#f59e0b', width=3, dash='dash')
+                line=dict(color='#d97706', width=3, dash='dash')
             ))
             fig_kab.update_layout(
                 paper_bgcolor='rgba(0,0,0,0)',
                 plot_bgcolor='rgba(0,0,0,0)',
-                font_color='#cbd5e1',
+                font_color='#1e293b',
                 margin=dict(l=20, r=20, t=20, b=20),
                 height=300,
                 xaxis=dict(showgrid=False),
-                yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)'),
+                yaxis=dict(showgrid=True, gridcolor='rgba(16, 185, 129, 0.15)'),
                 legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
             )
             st.plotly_chart(fig_kab, use_container_width=True)
@@ -971,8 +979,8 @@ with tab_education:
     st.markdown("### 💡 Edukasi Strategi Penjualan Gabah & Waktu Panen")
     st.markdown(
         """
-        Sering kali petani terpaksa menjual gabah dengan harga sangat murah karena waktu panen raya bersamaan. 
-        <b>Jateng Harvest</b> menyajikan modul edukasi siklus tren harga gabah regional agar Anda dapat merencanakan penjualan terbaik.
+        Sering kali kita terpaksa menjual gabah dengan harga sangat murah karena berbarengan dengan panen raya di mana-mana. 
+        **Jateng Harvest** menyediakan modul edukasi sederhana mengenai siklus tren harga gabah daerah, agar Bapak/Ibu sekalian bisa merencanakan waktu penjualan terbaik dengan harga yang pas.
         """
     )
     
@@ -988,13 +996,13 @@ with tab_education:
     with col_edu_info:
         st.markdown(
             """
-            <div class="glass-card" style="border-left:5px solid #fbbf24;">
-                <h4 style="color:#fbbf24; margin-top:0;">💡 Tips Penjualan Gabah:</h4>
-                <ul style="padding-left:20px; font-size:0.85rem; color:#cbd5e1; line-height:1.6;">
-                    <li><b>Hindari Penjualan Saat Panen Raya (Maret - Mei):</b> Harga Gabah Kering Panen (GKP) cenderung mencapai titik terendah karena pasokan melimpah.</li>
-                    <li><b>Gunakan Lantai Jemur Pasca Panen:</b> Mengeringkan gabah Anda hingga kadar air 14% (menjadi Gabah Kering Giling - GKG) dapat meningkatkan nilai jual hingga 25-30% lebih tinggi.</li>
-                    <li><b>Jendela Emas Penjualan (November - Januari):</b> Harga melonjak tinggi di musim tanam karena minimnya ketersediaan panen di pasaran.</li>
-                    <li><b>Simpan dengan Baik:</b> Gunakan instruksi kapasitas gudang di halaman utama untuk mengamankan stok gabah Anda agar terhindar dari jamur.</li>
+            <div class="glass-card" style="border-left: 5px solid #d97706; background: rgba(255, 255, 255, 0.8);">
+                <h4 style="color:#b45309; margin-top:0; font-size:1.1rem;">💡 Tips Penting Penjualan Gabah:</h4>
+                <ul style="padding-left:20px; font-size:0.9rem; color:#334155; line-height:1.7;">
+                    <li><b>Jangan Langsung Jual Semua saat Panen Raya (Maret - Mei):</b> Biasanya pas panen raya, harga gabah basah (GKP) bakal turun drastis karena stok melimpah. Jika ada kebutuhan mendesak, jual sebagian saja dahulu, sisanya disimpan.</li>
+                    <li><b>Manfaatkan Lantai Jemur (Dikeringkan Dulu):</b> Gabah yang dikeringkan sampai kadar air sekitar 14% (menjadi Gabah Kering Giling/GKG) harganya bisa naik 25% hingga 30% lebih tinggi dibanding langsung dijual basah.</li>
+                    <li><b>Incar "Waktu Emas" Penjualan (November - Januari):</b> Di bulan-bulan ini, stok gabah di pasar sangat sedikit karena petani baru mulai menanam. Harga gabah biasanya melonjak tinggi. Ini waktu terbaik untuk menjual simpanan gabah Anda.</li>
+                    <li><b>Simpan dengan Baik agar Aman:</b> Pastikan gudang penyimpanan Bapak/Ibu kering dan bebas dari lembap. Gunakan panduan area jemur di Tab 1 agar gabah tidak berjamur dan kualitasnya tetap terjaga.</li>
                 </ul>
             </div>
             """,
@@ -1009,7 +1017,7 @@ with tab_education:
         fig_edu.add_trace(go.Bar(
             x=prices_data['Bulan'], y=prices_data['Volume_Panen_Nasional'],
             name="Volume Pasokan Pasar (%)",
-            marker_color='rgba(16, 185, 129, 0.25)',
+            marker_color='rgba(16, 185, 129, 0.35)',
             yaxis='y2'
         ))
         
@@ -1018,20 +1026,21 @@ with tab_education:
             x=prices_data['Bulan'], y=prices_data['Harga_GKP_PerKg'],
             mode='lines+markers+text',
             name="Rata-rata Harga Gabah (IDR/Kg)",
-            line=dict(color='#fbbf24', width=3),
-            marker=dict(size=8, color='#d97706'),
+            line=dict(color='#d97706', width=3),
+            marker=dict(size=8, color='#b45309'),
             text=[f"Rp{val:,}" for val in prices_data['Harga_GKP_PerKg']],
+            textfont=dict(color='#1e293b'),
             textposition="top center"
         ))
         
         fig_edu.update_layout(
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
-            font_color='#cbd5e1',
+            font_color='#1e293b',
             margin=dict(l=20, r=20, t=10, b=20),
             height=300,
             xaxis=dict(showgrid=False),
-            yaxis=dict(title="Harga Gabah (IDR/Kg)", showgrid=True, gridcolor='rgba(255,255,255,0.05)'),
+            yaxis=dict(title="Harga Gabah (IDR/Kg)", showgrid=True, gridcolor='rgba(16, 185, 129, 0.15)'),
             yaxis2=dict(
                 title="Saturasi Pasokan (%)",
                 overlaying='y',
