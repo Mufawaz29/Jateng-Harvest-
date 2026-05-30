@@ -17,13 +17,23 @@ from PIL import Image
 # ==========================================
 # LOGO LOADING
 # ==========================================
-LOGO_PATH = r"D:\Mat.6\proyek transdig\STREAMLITPYTHON\30 Mei 2026, 11.51.02.png"
+LOGO_FILENAME = "30 Mei 2026, 11.51.02.png"
 logo_img = None
-if os.path.exists(LOGO_PATH):
-    try:
-        logo_img = Image.open(LOGO_PATH)
-    except Exception:
-        pass
+
+# Coba cari file gambar logo di beberapa lokasi (lokal/repositori)
+possible_logo_paths = [
+    LOGO_FILENAME,
+    os.path.join(os.path.dirname(__file__), LOGO_FILENAME),
+    r"D:\Mat.6\proyek transdig\STREAMLITPYTHON\30 Mei 2026, 11.51.02.png"
+]
+
+for path in possible_logo_paths:
+    if os.path.exists(path):
+        try:
+            logo_img = Image.open(path)
+            break
+        except Exception:
+            pass
 
 # ==========================================
 # PAGE CONFIGURATION & THEME STYLE
