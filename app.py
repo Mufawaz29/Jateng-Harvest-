@@ -216,13 +216,17 @@ GOOGLE_SHEETS_API_URL = "https://script.google.com/macros/s/15WhpXDecY5QJQDFEu_U
 
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/15WhpXDecY5QJQDFEu_Uh4fsSLDr3fA7cinSTlLAu8f8/edit#gid=0"
 
-def save_developer_log(kabupaten, kecamatan, luas_tanam, hasil_prediksi):
-    """Fungsi penulisan otomatis log ke Google Sheets menggunakan Service Account Streamlit Secrets."""
+def log_anonymous_activity(kecamatan, kabupaten, luas_tanam, asumsi_prod, estimasi_ton):
+    """Background logging to Google Sheets with double try-except fallback to local CSV."""
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    success = False
+    
+    # First level: Try to send to Google Sheets
     try:
         # Menghubungkan ke Google Sheets melalui GSheetsConnection
         conn = st.connection("gsheets", type=GSheetsConnection)
         
-        # Membaca data yang sudah ada di worksheet "Sheet1" dengan parameter spreadsheet eksplisit
+        # Membaca data yang sudah ada di worksheet "Sheet1" secara langsung
         try:
             existing_df = conn.read(spreadsheet=SPREADSHEET_URL, worksheet="Sheet1", ttl=0)
         except Exception:
@@ -234,11 +238,11 @@ def save_developer_log(kabupaten, kecamatan, luas_tanam, hasil_prediksi):
         
         # Membangun baris data baru
         new_row = pd.DataFrame([{
-            "Waktu": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "Waktu": timestamp,
             "Kabupaten": str(kabupaten),
             "Kecamatan": str(kecamatan),
             "Luas_Tanam": float(luas_tanam),
-            "Estimasi_Panen": float(hasil_prediksi)
+            "Estimasi_Panen": float(estimasi_ton)
         }])
         
         # Menambahkan baris baru di bawah data yang sudah ada
@@ -246,46 +250,22 @@ def save_developer_log(kabupaten, kecamatan, luas_tanam, hasil_prediksi):
         
         # Memperbarui spreadsheet dengan parameter spreadsheet eksplisit
         conn.update(spreadsheet=SPREADSHEET_URL, worksheet="Sheet1", data=updated_df)
-    except Exception as e:
-        # Menampilkan pesan error dan petunjuk otentikasi Editor secara sangat jelas
-        st.error(f"Gagal mengirim data ke Google Sheets: {e}")
-        st.warning(
-            "⚠️ **Petunjuk Penting Otentikasi Google Sheets (Permission Denied):**\n\n"
-            "Jika data gagal masuk, Anda **WAJIB** membuka file Google Sheets Anda (`jateng_proyek`), klik tombol **Share (Bagikan)** di pojok kanan atas, dan tambahkan email Service Account bot ini sebagai **Editor**:\n\n"
-            "👉 `jateng-harvest-bot@jateng-harvest-monitoring.iam.gserviceaccount.com`"
-        )
-
-def log_anonymous_activity(kecamatan, kabupaten, luas_tanam, asumsi_prod, estimasi_ton):
-    """Tugas 2 & Fitur 5: Anonymous Activity Logger & Telemetry ke Google Sheets (Tanpa Identitas Pribadi)."""
-    # 1. Simpan ke CSV lokal
-    try:
-        file_exists = os.path.exists(TELEMETRY_FILE)
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with open(TELEMETRY_FILE, mode='a', newline='', encoding='utf-8') as f:
-            writer = csv.writer(f)
-            if not file_exists:
-                writer.writerow(["Timestamp", "Kabupaten", "Kecamatan", "Luas_Tanam_Ha", "Asumsi_Prod_TonHa", "Estimasi_Total_Ton"])
-            writer.writerow([timestamp, kabupaten, kecamatan, round(luas_tanam, 2), round(asumsi_prod, 2), round(estimasi_ton, 2)])
+        success = True
     except Exception:
+        # Fails, will proceed to local backup
         pass
         
-    # 2. Kirim ke Google Sheets via Web App URL
-    try:
-        payload = {
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "kabupaten": kabupaten,
-            "kecamatan": kecamatan,
-            "luas_tanam": round(luas_tanam, 2),
-            "estimasi_ton": round(estimasi_ton, 2)
-        }
-        data = urllib.parse.urlencode(payload).encode('utf-8')
-        req = urllib.request.Request(GOOGLE_SHEETS_API_URL, data=data)
-        urllib.request.urlopen(req, timeout=3)
-    except Exception:
-        pass # fail silently
-        
-    # 3. Eksekusi koneksi GSheetsConnection resmi Streamlit Secrets
-    save_developer_log(kabupaten, kecamatan, luas_tanam, estimasi_ton)
+    # Second level: If Google Sheets fails, backup to local CSV
+    if not success:
+        try:
+            file_exists = os.path.exists(TELEMETRY_FILE)
+            with open(TELEMETRY_FILE, mode='a', newline='', encoding='utf-8') as f:
+                writer = csv.writer(f)
+                if not file_exists:
+                    writer.writerow(["Waktu", "Kabupaten", "Kecamatan", "Luas_Tanam", "Estimasi_Panen"])
+                writer.writerow([timestamp, kabupaten, kecamatan, round(luas_tanam, 2), round(estimasi_ton, 2)])
+        except Exception:
+            pass
 
 def log_user_feedback(kecamatan, kabupaten, bulan_tanam, luas_tanam, akurat):
     """Tugas 3: Modul Feedback Inklusif untuk Validasi Model Masa Depan."""
@@ -367,135 +347,6 @@ def safe_transform(encoder, label, default_val=-1):
     except Exception:
         return default_val
 
-def transform_realtime_simotandi(uploaded_file):
-    """
-    Advanced ETL function to parse raw SIMOTANDI files with multi-level merged headers.
-    - Uses vertical scanning to identify columns, bypassing messy horizontal rows.
-    """
-    try:
-        if uploaded_file.name.endswith('.csv'):
-            df_uploaded = pd.read_csv(uploaded_file, header=None)
-        else:
-            df_uploaded = pd.read_excel(uploaded_file, header=None)
-            
-        # 1. Tentukan indeks kolom menggunakan Vertical Scanning (20 baris pertama)
-        col_indices = {}
-        # Gunakan array dari berbagai kemungkinan nama kolom (cukup salah satu match = valid)
-        col_matchers = {
-            'kabupaten': ['kabupaten', 'kab.', 'kab ', 'kab_', 'kabupaten/kota'],
-            'kecamatan': ['kecamatan', 'kec.', 'kec ', 'kec_', 'nama wilayah', 'nama kec', 'wilayah'],
-            'tanam': ['tanam', 'tanam (1', 'tanam(1'],
-            'veg1': ['vegetatif 1', 'vegetatif1', 'veg 1', 'veg1', '13 -', '13-'],
-            'veg2': ['vegetatif 2', 'vegetatif2', 'veg 2', 'veg2', '37 -', '37-'],
-            'gen1': ['generatif 1', 'generatif1', 'gen 1', 'gen1', '61 -', '61-'],
-            'gen2': ['generatif 2', 'generatif2', 'gen 2', 'gen2', '85 -', '85-'],
-            'panen': ['panen'] 
-        }
-        
-        num_cols = len(df_uploaded.columns)
-        for c in range(num_cols):
-            # Gabungkan 20 baris teratas dari kolom ini menjadi satu string panjang
-            col_header_text = ' '.join(df_uploaded.iloc[:20, c].astype(str)).lower().replace('\n', ' ')
-            
-            # SANITASI: Hapus kata-kata pengecoh dari judul besar/agregat (misal judul file di baris 1)
-            # Ini mencegah keyword 'tanam' menyangkut di kata 'pertanaman', dan 'panen' di 'luas panen'
-            col_header_text = col_header_text.replace('pertanaman', '').replace('luas panen', '').replace('luas baku sawah', '')
-            
-            for key, keywords in col_matchers.items():
-                if key not in col_indices:
-                    # Cek apakah ada satupun keyword yang cocok (ANY)
-                    if any(kw in col_header_text for kw in keywords):
-                        col_indices[key] = c
-                        
-        # Pastikan kolom utama minimal ditemukan
-        if 'kecamatan' not in col_indices or 'tanam' not in col_indices:
-            # Kembalikan dataframe utuh (fallback ke mode lama) jika parser ini gagal total
-            df_uploaded.columns = df_uploaded.iloc[0]
-            df_uploaded = df_uploaded.iloc[1:].reset_index(drop=True)
-            df_uploaded.columns = df_uploaded.columns.astype(str).str.lower().str.replace('\n', ' ').str.strip()
-            return df_uploaded
-            
-        # 2. Cari baris pertama yang berisi data numerik pada kolom 'tanam'
-        tanam_col_idx = col_indices['tanam']
-        data_start_idx = -1
-        for i in range(25):
-            try:
-                val = str(df_uploaded.iloc[i, tanam_col_idx]).strip()
-                if val.replace('.', '', 1).isdigit() and val.lower() != 'nan':
-                    data_start_idx = i
-                    break
-            except Exception:
-                pass
-                    
-        if data_start_idx == -1:
-            data_start_idx = 5 # Asumsi standar jika tidak terdeteksi
-            
-        # 3. Potong dataframe hanya untuk area data
-        df_data = df_uploaded.iloc[data_start_idx:].reset_index(drop=True)
-        
-        # 4. Bangun dataframe baru yang sudah terstruktur rapi dengan nama standar
-        df_clean = pd.DataFrame()
-        for key, c_idx in col_indices.items():
-            col_data = df_data.iloc[:, c_idx]
-            
-            # KOREKSI PERGESERAN KOLOM MERGED KOSONG (SELF-HEALING LOGIC):
-            # Jika kolom terpilih ternyata kosong/NaN semua di area data (biasanya akibat ketidakselarasan merge cell header vs data),
-            # pindai kolom tetangga terdekat (offset 1, 2, -1, -2) untuk mengambil data sesungguhnya!
-            if col_data.dropna().empty:
-                for offset in [1, 2, -1, -2]:
-                    target_idx = c_idx + offset
-                    if 0 <= target_idx < num_cols:
-                        candidate_data = df_data.iloc[:, target_idx]
-                        if not candidate_data.dropna().empty:
-                            first_val = str(candidate_data.dropna().iloc[0]).strip()
-                            
-                            # Jika mencari wilayah (kabupaten/kecamatan), pastikan kandidat berisi teks bukan angka
-                            if key in ['kabupaten', 'kecamatan']:
-                                if not first_val.replace('.', '', 1).isdigit():
-                                    col_data = candidate_data
-                                    break
-                            # Jika mencari fase numerik, pastikan kandidat berisi angka
-                            else:
-                                if first_val.replace('.', '', 1).isdigit() or first_val.lower() == 'nan':
-                                    col_data = candidate_data
-                                    break
-            
-            df_clean[key] = col_data
-            
-        # DUPLIKASI CERDAS AREA: Jika file SIMOTANDI hanya punya 1 kolom wilayah, isi ke dua-duanya!
-        # Namun sebelum itu, coba deteksi Kabupaten dari teks metadata di 20 baris pertama
-        detected_kabupaten = None
-        for i in range(min(20, len(df_uploaded))):
-            row_str = ' '.join(df_uploaded.iloc[i].astype(str)).lower()
-            for kab in le_kab.classes_:
-                if kab.lower() in row_str:
-                    detected_kabupaten = kab
-                    break
-            if detected_kabupaten:
-                break
-                
-        if 'kabupaten' not in df_clean.columns:
-            if detected_kabupaten:
-                df_clean['kabupaten'] = detected_kabupaten
-            elif 'kecamatan' in df_clean.columns:
-                df_clean['kabupaten'] = df_clean['kecamatan']
-            
-        # Jika kabupaten masih tidak ada, isi otomatis dengan nilai default
-        if 'kabupaten' not in df_clean.columns:
-            df_clean['kabupaten'] = "Tidak Diketahui"
-            
-        # Buang baris spasi atau nan
-        df_clean = df_clean.dropna(subset=['kecamatan'])
-        
-        # FILTER TOTAL PROVINSI: Buang baris "Jawa Tengah" agar tidak diprediksi sebagai kecamatan
-        invalid_areas = ['jawa tengah', 'total', 'jumlah', 'provinsi']
-        df_clean = df_clean[~df_clean['kecamatan'].astype(str).str.lower().str.strip().isin(invalid_areas)]
-            
-        return df_clean
-        
-    except Exception as e:
-        st.error(f"Gagal memparsing file mentah: {e}")
-        return None
 def get_historical_luas_tanam(df, kabupaten, kecamatan, month_num):
     """
     Extracts the average historical Luas Tanam for a given area and month.
@@ -627,16 +478,38 @@ def get_3_month_predictions(df, kabupaten, kecamatan, current_month_name, curren
 # ==========================================
 # DEVELOPER DASHBOARD (SECRET VIEW)
 # ==========================================
-if st.query_params.get("view") == "developer":
+if st.query_params.get("view") == "developer-access":
     st.markdown(
         """
         <div class="header-card" style="text-align: center; padding: 20px;">
-            <h1 style="margin: 0; color: #10b981;">👨‍💻 Dashboard Monitoring Internal Developer</h1>
-            <p style="margin: 10px 0 0 0; color: #cbd5e1;">Pemantauan live data aktivitas prediksi dari Google Sheets jateng_proyek.</p>
+            <h1 style="margin: 0; color: #10b981;">👨‍💻 Autentikasi Internal Developer</h1>
+            <p style="margin: 10px 0 0 0; color: #cbd5e1;">Akses terbatas. Silakan masukkan password/token pengembang.</p>
         </div>
         """, 
         unsafe_allow_html=True
     )
+    
+    # Password Form
+    col_auth_left, col_auth_right = st.columns([1, 2])
+    with col_auth_left:
+        password_input = st.text_input("Masukkan Token/Password:", type="password", key="dev_access_token")
+    
+    correct_password = "jateng_admin_2026"
+    try:
+        if "DEVELOPER_PASSWORD" in st.secrets:
+            correct_password = st.secrets["DEVELOPER_PASSWORD"]
+    except Exception:
+        pass
+        
+    if not password_input:
+        st.info("⚠️ Silakan isi password untuk melihat Dashboard Monitoring.")
+        st.stop()
+    elif password_input != correct_password:
+        st.error("❌ Password salah! Akses ditolak.")
+        st.stop()
+        
+    st.success("🔓 Akses Diberikan. Memuat data telemetri...")
+    st.markdown("---")
     
     try:
         # Menghubungkan ke Google Sheets melalui GSheetsConnection
@@ -721,14 +594,6 @@ st.sidebar.markdown(
 
 st.sidebar.markdown("<hr style='border: 1px solid rgba(255,255,255,0.05); margin-top:0px;'>", unsafe_allow_html=True)
 
-# File uploader for Simontadi
-st.sidebar.markdown("### 📥 Integrasi Simontadi")
-uploaded_file = st.sidebar.file_uploader(
-    "Unggah Data Simontadi 2026",
-    type=["csv", "xlsx"],
-    help="Unggah laporan tanam bulanan versi Simontadi untuk memproses prediksi secara otomatis/batch."
-)
-
 # Custom metrics inputs for recommendations
 st.sidebar.markdown("### ⚙️ Parameter Produktivitas")
 productivity_rate = st.sidebar.slider(
@@ -775,13 +640,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Handle file upload processing if present
-simontadi_data = None
-if uploaded_file is not None:
-    simontadi_data = transform_realtime_simotandi(uploaded_file)
-    if simontadi_data is not None:
-        st.success(f"✔️ Berkas '{uploaded_file.name}' berhasil diunggah dan dibersihkan! Sistem siap memproses batch prediksi.")
-
 # Bagian 2: Area Input (Tengah Atas)
 st.markdown("<div style='background: rgba(30, 41, 59, 0.6); padding: 25px; border-radius: 16px; border: 1px solid rgba(255,255,255,0.05); margin-bottom: 30px;'>", unsafe_allow_html=True)
 st.markdown("<h3 style='margin-top:0; color:#10b981;'>📍 Pilih Wilayah Lahan Anda</h3>", unsafe_allow_html=True)
@@ -822,11 +680,10 @@ with col_inp2:
 st.markdown("</div>", unsafe_allow_html=True)
 
 # MAIN TABS
-tab_predict, tab_batch, tab_summary, tab_education = st.tabs([
-    "🔮 Estimasi & Instruksi Pasca-Panen",
-    "📊 Estimasi Massal Laporan Simontadi 2026",
-    "📈 Ringkasan Data Tanam Jateng 2025",
-    "💡 Edukasi Tren Harga & Waktu Jual"
+tab_predict, tab_community, tab_education = st.tabs([
+    "🔮 Estimasi & Instruksi Pasca-Panen (Individu)",
+    "📊 Pantau Wilayah Kecamatan (Tren Komunitas)",
+    "💡 Edukasi Tren Harga & Literasi Finansial"
 ])
 
 # ------------------------------------------
@@ -859,9 +716,9 @@ with tab_predict:
     total_karung = total_est_ton * 20
     total_buruh = math.ceil(total_est_ha / 2.0)
     
-    # Log telemetry
-    log_anonymous_activity(selected_kec, selected_kab, manual_luas_tanam, productivity_rate, total_est_ton)
+    # Log telemetry only when button is clicked
     if hitung_btn:
+        log_anonymous_activity(selected_kec, selected_kab, manual_luas_tanam, productivity_rate, total_est_ton)
         st.success("✔️ Data berhasil tercatat di laporan developer!")
     
     # Bagian 3: Visualisasi Hasil (Kartu Informasi / Metrics Card Kontras Tinggi)
@@ -984,158 +841,35 @@ with tab_predict:
             st.success("Maturnuwun! Masukan Anda membantu kami menyempurnakan perhitungan.")
 
 # ------------------------------------------
-# TAB 2: BATCH PREDICTION SIMONTADI 2026
+# TAB 2: COMMUNITY MONITOR (AUTOMATIC HISTORICAL DATA DETECTOR)
 # ------------------------------------------
-with tab_batch:
-    st.markdown("### 📊 Proses Batch Perencanaan Simontadi 2026")
+with tab_community:
+    st.markdown(f"### 📊 Pola Tanam & Prediksi Panen Wilayah Kecamatan **{selected_kec}**")
     st.markdown(
         """
-        Gunakan menu ini untuk memproses data dari sistem eksternal **Simontadi**. Anda cukup mengunggah data tanam bulanan, 
-        dan sistem akan menghitung estimasi panen raya serta merancang logistik persiapan panen untuk seluruh wilayah sekaligus!
+        Gunakan tab ini untuk melihat ringkasan pola tanam historis dan estimasi panen komunitas di wilayah kecamatan Anda.
+        Sistem membaca data internal secara otomatis tanpa memerlukan unggah data manual.
         """
     )
     
-    # Showcase Template for users to download
-    st.markdown("#### 📥 Contoh/Template Struktur CSV Simontadi Operasional (HST)")
-    template_data = pd.DataFrame([
-        {
-            "Kabupaten": "Banjarnegara", "Kecamatan": "Banjarmangu", 
-            "Tanam (1 - 12 HST)": 65.24, "Vegetatif 1 (13 - 36 HST)": 100.5, "Vegetatif 2 (37 - 60 HST)": 150.2,
-            "Generatif 1 (61 - 84 HST)": 200.0, "Generatif 2 (85 - 120 HST)": 180.5, "Panen": 90.0
-        },
-        {
-            "Kabupaten": "Banyumas", "Kecamatan": "Ajibarang", 
-            "Tanam (1 - 12 HST)": 405.46, "Vegetatif 1 (13 - 36 HST)": 300.0, "Vegetatif 2 (37 - 60 HST)": 250.0,
-            "Generatif 1 (61 - 84 HST)": 150.0, "Generatif 2 (85 - 120 HST)": 100.0, "Panen": 400.0
-        }
-    ])
-    st.dataframe(template_data, use_container_width=True)
+    # Filter dataset for selected area
+    df_kec = df_hist[
+        (df_hist['Kabupaten'].str.lower() == selected_kab.lower()) & 
+        (df_hist['Kecamatan'].str.lower() == selected_kec.lower())
+    ]
     
-    # Process uploaded file
-    if simontadi_data is not None:
-        st.markdown("#### 🔍 Pratinjau Data Simontadi yang Diunggah")
-        st.dataframe(simontadi_data.head(10), use_container_width=True)
-        
-        # Verifikasi Kolom Hasil ETL
-        required_cols = [
-            'kabupaten', 'kecamatan', 'tanam', 
-            'veg1', 'veg2', 'gen1', 'gen2', 'panen'
-        ]
-        
-        actual_cols = list(simontadi_data.columns)
-        missing_cols = [c for c in required_cols if c not in actual_cols]
-        
-        if missing_cols:
-            st.error(f"Kolom berkas tidak dapat dipetakan secara otomatis. Kategori yang hilang: {missing_cols}. Pastikan format SIMOTANDI dapat terbaca.")
-        else:
-            run_batch = st.button("🔮 Jalankan Proses Perhitungan Estimasi & Logistik Massal")
-            
-            if run_batch:
-                with st.spinner("Menghitung estimasi luas panen dan rincian logistik untuk seluruh baris data..."):
-                    results = []
-                    
-                    for index, row_data in simontadi_data.iterrows():
-                        row_kab = str(row_data['kabupaten'])
-                        row_kec = str(row_data['kecamatan'])
-                        
-                        # Pastikan tidak memproses baris yang bernilai nan
-                        if row_kec.lower() == 'nan':
-                            continue
-                            
-                        # ETL Feature Alignment
-                        try:
-                            tanam = float(str(row_data['tanam']).replace(',', '.'))
-                            veg1 = float(str(row_data['veg1']).replace(',', '.'))
-                            veg2 = float(str(row_data['veg2']).replace(',', '.'))
-                            gen1 = float(str(row_data['gen1']).replace(',', '.'))
-                            gen2 = float(str(row_data['gen2']).replace(',', '.'))
-                            panen_val = float(str(row_data['panen']).replace(',', '.'))
-                        except ValueError:
-                            # Skip row if it has non-numeric data that can't be converted
-                            continue
-                        
-                        fase_vegetatif_est = tanam + veg1 + veg2
-                        fase_generatif_est = gen1 + gen2
-                        fase_siap_panen_est = panen_val
-                        luas_tanam = tanam + veg1
-                        bulan_angka = datetime.now().month
-                        
-                        kab_enc = safe_transform(le_kab, row_kab)
-                        kec_enc = safe_transform(le_kec, row_kec)
-                        
-                        feature_vector = [
-                            kab_enc,
-                            kec_enc,
-                            bulan_angka,
-                            luas_tanam,
-                            fase_vegetatif_est,
-                            fase_generatif_est,
-                            fase_siap_panen_est
-                        ]
-                        
-                        try:
-                            pred_log = model.predict([feature_vector])[0]
-                            pred_ha = max(0.0, np.expm1(pred_log))
-                        except Exception:
-                            pred_ha = 0.0
-                            
-                        # Recommendation math
-                        tons = pred_ha * productivity_rate
-                        sacks = math.ceil(tons * 20)
-                        harvesters = math.ceil(pred_ha / 15.0)
-                        
-                        results.append({
-                            "Kabupaten": row_kab,
-                            "Kecamatan": row_kec,
-                            "Bulan Data (Ekstrak)": bulan_angka,
-                            "Luas Tanam Aktual (Ha)": round(luas_tanam, 2),
-                            "Estimasi Panen Selanjutnya (Ha)": round(pred_ha, 1),
-                            "Estimasi Produksi (Ton)": round(tons, 1),
-                            "Kebutuhan Karung (Pcs)": sacks,
-                            "Kebutuhan Harvester (Unit)": harvesters
-                        })
-                        
-                    df_results = pd.DataFrame(results)
-                    
-                    st.success("🎉 Berhasil memproses perhitungan estimasi massal!")
-                    st.markdown("#### 📋 Hasil Perhitungan Estimasi & Rekomendasi Logistik Wilayah")
-                    st.dataframe(df_results, use_container_width=True)
-                    
-                    # File downloader
-                    csv_bytes = df_results.to_csv(index=False).encode('utf-8')
-                    st.download_button(
-                        label="📥 Unduh Laporan Logistik & Estimasi Lengkap (CSV)",
-                        data=csv_bytes,
-                        file_name="Laporan_Logistik_Panen_Simontadi_2026.csv",
-                        mime="text/csv"
-                    )
-    else:
-        st.info("💡 Silakan unggah berkas Simontadi pada sidebar untuk mengaktifkan fitur Batch Processing.")
-
-# ------------------------------------------
-# TAB 3: CENTRAL JAVA 2025 SUMMARY (HISTORICAL BACKGROUND)
-# ------------------------------------------
-with tab_summary:
-    st.markdown("### 📊 Ringkasan Panen Jawa Tengah 2025")
-    st.markdown(
-        """
-        Dashboard ini divalidasi dan dibangun di atas data riil pertanian Jawa Tengah. Berikut adalah gambaran sebaran 
-        dan pola tanam di Central Java untuk memperkaya keputusan Anda.
-        """
-    )
-    
-    if not df_hist.empty:
+    if not df_kec.empty:
         # High level stats
-        tot_luas_tanam = df_hist['Luas_Tanam'].sum()
-        tot_luas_panen = df_hist['Luas_Panen'].sum()
-        avg_fase_siap = df_hist['Fase_Siap_Panen_Est'].mean()
+        tot_luas_tanam = df_kec['Luas_Tanam'].sum()
+        tot_luas_panen = df_kec['Luas_Panen'].sum()
+        avg_fase_siap = df_kec['Fase_Siap_Panen_Est'].mean()
         
         c_stats_1, c_stats_2, c_stats_3 = st.columns(3)
         with c_stats_1:
             st.markdown(
                 f"""
                 <div class="glass-card" style="text-align: center; border-left: 5px solid #10b981;">
-                    <span style="font-size:0.8rem; color:#94a3b8; font-weight:700; text-transform:uppercase;">TOTAL HISTORIS LUAS TANAM</span>
+                    <span style="font-size:0.8rem; color:#94a3b8; font-weight:700; text-transform:uppercase;">TOTAL LUAS TANAM WILAYAH</span>
                     <div class="metric-val" style="margin:10px 0 0 0;">{tot_luas_tanam:,.1f} Ha</div>
                 </div>
                 """,
@@ -1145,7 +879,7 @@ with tab_summary:
             st.markdown(
                 f"""
                 <div class="glass-card" style="text-align: center; border-left: 5px solid #f59e0b;">
-                    <span style="font-size:0.8rem; color:#94a3b8; font-weight:700; text-transform:uppercase;">TOTAL HISTORIS LUAS PANEN</span>
+                    <span style="font-size:0.8rem; color:#94a3b8; font-weight:700; text-transform:uppercase;">TOTAL LUAS PANEN WILAYAH</span>
                     <div class="metric-val metric-val-gold" style="margin:10px 0 0 0;">{tot_luas_panen:,.1f} Ha</div>
                 </div>
                 """,
@@ -1162,46 +896,21 @@ with tab_summary:
                 unsafe_allow_html=True
             )
             
-        # Top Kabupaten Visualizer
-        st.markdown("#### 🏆 10 Kabupaten dengan Luas Panen Terbesar")
-        df_kab_sum = df_hist.groupby('Kabupaten')['Luas_Panen'].sum().reset_index().sort_values('Luas_Panen', ascending=False).head(10)
-        
-        fig_kab = px.bar(
-            df_kab_sum,
-            y='Kabupaten',
-            x='Luas_Panen',
-            orientation='h',
-            color='Luas_Panen',
-            color_continuous_scale=['#34d399', '#10b981', '#f59e0b'],
-            labels={'Luas_Panen': 'Total Luas Panen (Ha)', 'Kabupaten': 'Kabupaten'}
-        )
-        fig_kab.update_layout(
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font_color='#cbd5e1',
-            margin=dict(l=20, r=20, t=10, b=20),
-            height=300,
-            xaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)'),
-            yaxis=dict(showgrid=False, categoryorder='total ascending'),
-            coloraxis_showscale=False
-        )
-        st.plotly_chart(fig_kab, use_container_width=True)
-        
-        # Monthly Seasonal Cycle of Planting vs Harvesting
-        st.markdown("#### 📅 Pola Siklus Bulanan: Masa Tanam vs Masa Panen")
-        df_monthly = df_hist.groupby('Bulan_Angka')[['Luas_Tanam', 'Luas_Panen']].mean().reset_index()
-        df_monthly['Bulan'] = df_monthly['Bulan_Angka'].map(MONTH_MAP_NUM_TO_ID)
-        df_monthly = df_monthly.sort_values('Bulan_Angka')
+        # Monthly Seasonal Cycle of Planting vs Harvesting for Kecamatan
+        st.markdown("#### 📅 Pola Siklus Bulanan Kecamatan: Masa Tanam vs Masa Panen")
+        df_kec_monthly = df_kec.groupby('Bulan_Angka')[['Luas_Tanam', 'Luas_Panen']].mean().reset_index()
+        df_kec_monthly['Bulan'] = df_kec_monthly['Bulan_Angka'].map(MONTH_MAP_NUM_TO_ID)
+        df_kec_monthly = df_kec_monthly.sort_values('Bulan_Angka')
         
         fig_cycle = go.Figure()
         fig_cycle.add_trace(go.Scatter(
-            x=df_monthly['Bulan'], y=df_monthly['Luas_Tanam'],
-            mode='lines+markers', name='Rata-rata Luas Tanam (🌱)',
+            x=df_kec_monthly['Bulan'], y=df_kec_monthly['Luas_Tanam'],
+            mode='lines+markers', name='Luas Tanam (🌱)',
             line=dict(color='#10b981', width=3)
         ))
         fig_cycle.add_trace(go.Scatter(
-            x=df_monthly['Bulan'], y=df_monthly['Luas_Panen'],
-            mode='lines+markers', name='Rata-rata Luas Panen (🌾)',
+            x=df_kec_monthly['Bulan'], y=df_kec_monthly['Luas_Panen'],
+            mode='lines+markers', name='Luas Panen (🌾)',
             line=dict(color='#f59e0b', width=3, dash='dash')
         ))
         fig_cycle.update_layout(
@@ -1216,11 +925,48 @@ with tab_summary:
         )
         st.plotly_chart(fig_cycle, use_container_width=True)
         
+        # Details table
+        st.markdown("#### 📋 Rincian Data Historis Kecamatan")
+        df_kec_disp = df_kec.sort_values(by="Bulan_Angka")
+        st.dataframe(
+            df_kec_disp[['Bulan', 'Luas_Tanam', 'Luas_Panen', 'Fase_Vegetatif_Est', 'Fase_Generatif_Est', 'Fase_Siap_Panen_Est']],
+            use_container_width=True
+        )
     else:
-        st.warning("Data historis tidak dapat dimuat.")
+        st.warning(f"Data historis kecamatan {selected_kec} belum tersedia di database internal.")
+        # Fallback to Kabupaten average
+        df_kab = df_hist[df_hist['Kabupaten'].str.lower() == selected_kab.lower()]
+        if not df_kab.empty:
+            st.info(f"Menampilkan ringkasan rata-rata untuk Kabupaten {selected_kab} sebagai referensi:")
+            df_kab_monthly = df_kab.groupby('Bulan_Angka')[['Luas_Tanam', 'Luas_Panen']].mean().reset_index()
+            df_kab_monthly['Bulan'] = df_kab_monthly['Bulan_Angka'].map(MONTH_MAP_NUM_TO_ID)
+            df_kab_monthly = df_kab_monthly.sort_values('Bulan_Angka')
+            
+            fig_kab = go.Figure()
+            fig_kab.add_trace(go.Scatter(
+                x=df_kab_monthly['Bulan'], y=df_kab_monthly['Luas_Tanam'],
+                mode='lines+markers', name='Luas Tanam Rata-rata (🌱)',
+                line=dict(color='#10b981', width=3)
+            ))
+            fig_kab.add_trace(go.Scatter(
+                x=df_kab_monthly['Bulan'], y=df_kab_monthly['Luas_Panen'],
+                mode='lines+markers', name='Luas Panen Rata-rata (🌾)',
+                line=dict(color='#f59e0b', width=3, dash='dash')
+            ))
+            fig_kab.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)',
+                font_color='#cbd5e1',
+                margin=dict(l=20, r=20, t=20, b=20),
+                height=300,
+                xaxis=dict(showgrid=False),
+                yaxis=dict(showgrid=True, gridcolor='rgba(255,255,255,0.05)'),
+                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+            )
+            st.plotly_chart(fig_kab, use_container_width=True)
 
 # ------------------------------------------
-# TAB 4: EDUCATIONAL MODULE (GRAIN PRICES & SELLING STRATEGY)
+# TAB 3: EDUCATIONAL MODULE (GRAIN PRICES & SELLING STRATEGY)
 # ------------------------------------------
 with tab_education:
     st.markdown("### 💡 Edukasi Strategi Penjualan Gabah & Waktu Panen")
@@ -1297,8 +1043,6 @@ with tab_education:
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
         )
         st.plotly_chart(fig_edu, use_container_width=True)
-
-
 
 # Footer credit
 st.markdown("<hr style='border: 1px solid rgba(255,255,255,0.05); margin-top:40px;'>", unsafe_allow_html=True)
