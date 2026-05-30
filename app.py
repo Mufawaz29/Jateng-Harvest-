@@ -627,13 +627,13 @@ st.markdown(
     """
     <div class="header-card" style="text-align: center; padding: 30px 20px; border-radius: 16px; margin-bottom: 25px;">
         <span style="background-color: #10b981; color: #0f172a; padding: 6px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">
-            Sugeng Rawuh! Sistem Peringatan Dini Panen
+            Sugeng Rawuh Wonten ing Jateng Harvest! 🌾
         </span>
-        <h1 style="margin: 20px 0 10px 0; font-size: 2.4rem; letter-spacing: -0.5px; color: #ffffff;">
-            Mau cek persiapan panen di kecamatan mana hari ini?
+        <h1 style="margin: 20px 0 10px 0; font-size: 2.2rem; letter-spacing: -0.5px; color: #ffffff;">
+            Badhe ngecek persiapan panen teng kecamatan pundi dinten niki?
         </h1>
         <p style="margin: 0; color: #cbd5e1; font-size: 1.1rem; line-height: 1.6;">
-            Aplikasi publik ini menerjemahkan data pertanian menjadi instruksi persiapan logistik nyata bagi petani agar tidak rugi.
+            Aplikasi niki mbantu panjenengan ngitung kabutuhan logistik panen (karung, tenaga buruh, lan mesin) supados asil panenipun sae lan mboten rugi.
         </p>
     </div>
     """,
@@ -719,7 +719,6 @@ with tab_predict:
     # Log telemetry only when button is clicked
     if hitung_btn:
         log_anonymous_activity(selected_kec, selected_kab, manual_luas_tanam, productivity_rate, total_est_ton)
-        st.success("✔️ Data berhasil tercatat di laporan developer!")
     
     # Bagian 3: Visualisasi Hasil (Kartu Informasi / Metrics Card Kontras Tinggi)
     st.markdown("<h4 style='margin-top:25px; margin-bottom:15px;'>📊 Ringkasan Kebutuhan 3 Bulan Ke Depan</h4>", unsafe_allow_html=True)
