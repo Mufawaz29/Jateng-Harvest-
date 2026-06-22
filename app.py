@@ -936,8 +936,75 @@ with tab_predict:
 
         # FITUR: Visualisasi Peta Lahan Panen Komunitas
         st.markdown("<h4 style='margin-top:30px; margin-bottom:15px;'>🗺️ Peta Distribusi Area Panen (Simulasi Lokasi)</h4>", unsafe_allow_html=True)
-        df_coords = generate_simulated_coordinates(selected_kab, selected_kec)
-        st.map(df_coords)
+        
+        col_map_leg, col_map_real = st.columns([2, 3])
+        with col_map_leg:
+            st.markdown(
+                """
+                <div class="glass-card" style="padding: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.15); background: rgba(45, 106, 79, 0.4); color: #F8F9FA; height: 100%;">
+                    <h5 style="margin-top: 0; color: #FFB703; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; font-weight: 700; font-size: 1rem; letter-spacing: 0.5px;">🗺️ LEGENDA PETA PANEN</h5>
+                    
+                    <!-- Item 1: Bulatan Merah -->
+                    <div style="display: flex; align-items: start; margin-bottom: 12px; gap: 10px;">
+                        <div style="flex-shrink: 0; margin-top: 4px;">
+                            <div style="width: 14px; height: 14px; background: #FF3B30; border-radius: 50%; box-shadow: 0 0 8px #FF3B30; border: 1.5px solid #FFFFFF;"></div>
+                        </div>
+                        <div style="font-size: 0.85rem; line-height: 1.4;">
+                            <b style="color: #FFB703;">Bulatan Merah</b> = Lokasi Panen
+                        </div>
+                    </div>
+                    
+                    <!-- Item 2: Banyaknya Karung (Ukuran Bulatan) -->
+                    <div style="display: flex; align-items: start; margin-bottom: 12px; gap: 10px;">
+                        <div style="flex-shrink: 0; margin-top: 4px; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                            <span style="font-size: 1.1rem; line-height: 1;">🌾</span>
+                            <div style="display: flex; align-items: center; gap: 3px;">
+                                <div style="width: 6px; height: 6px; background: #FF3B30; border-radius: 50%;"></div>
+                                <div style="width: 12px; height: 12px; background: #FF3B30; border-radius: 50%;"></div>
+                            </div>
+                        </div>
+                        <div style="font-size: 0.85rem; line-height: 1.4;">
+                            <b style="color: #FFB703;">Ukuran Bulatan</b> = Banyaknya Karung<br>
+                            <span style="font-size: 0.75rem; color: #cbd5e1;">(Korelasi ukuran: Kecil & Besar)</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Item 3: Kebutuhan Tenaga Kerja (Kerapatan Bulatan) -->
+                    <div style="display: flex; align-items: start; margin-bottom: 12px; gap: 10px;">
+                        <div style="flex-shrink: 0; margin-top: 4px; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                            <span style="font-size: 1.1rem; line-height: 1;">🧑‍🌾</span>
+                            <div style="position: relative; width: 22px; height: 12px;">
+                                <div style="position: absolute; left: 0; width: 8px; height: 8px; background: #FF3B30; border-radius: 50%; opacity: 0.8;"></div>
+                                <div style="position: absolute; left: 4px; top: 2px; width: 8px; height: 8px; background: #FF3B30; border-radius: 50%; opacity: 0.8;"></div>
+                                <div style="position: absolute; left: 8px; width: 8px; height: 8px; background: #FF3B30; border-radius: 50%; opacity: 0.8;"></div>
+                            </div>
+                        </div>
+                        <div style="font-size: 0.85rem; line-height: 1.4;">
+                            <b style="color: #FFB703;">Kerapatan Bulatan</b> = Kebutuhan Tenaga Kerja<br>
+                            <span style="font-size: 0.75rem; color: #cbd5e1;">(Tumpang tindih = Kepadatan tinggi)</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Item 4: Perlu Mesin -->
+                    <div style="display: flex; align-items: start; gap: 10px;">
+                        <div style="flex-shrink: 0; margin-top: 4px; display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                            <span style="font-size: 1.1rem; line-height: 1;">🚜</span>
+                            <div style="border: 1px solid #FFB703; border-radius: 3px; padding: 1px; display: inline-block; line-height: 0;">
+                                <div style="width: 8px; height: 8px; background: #FF3B30; border-radius: 50%;"></div>
+                            </div>
+                        </div>
+                        <div style="font-size: 0.85rem; line-height: 1.4;">
+                            <b style="color: #FFB703;">Bulatan di Area Ini</b> = Perlu Mesin<br>
+                            <span style="font-size: 0.75rem; color: #cbd5e1;">(Peta dengan satu lingkaran merah besar)</span>
+                        </div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        with col_map_real:
+            df_coords = generate_simulated_coordinates(selected_kab, selected_kec)
+            st.map(df_coords)
 
         # Rincian per bulan
         st.markdown("<h4 style='margin-top:30px; margin-bottom:15px;'>📅 Rincian Persiapan Tiap Bulan</h4>", unsafe_allow_html=True)
