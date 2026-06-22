@@ -846,12 +846,6 @@ with col_inp2:
         is_valid_input = False
 
 hitung_btn = st.button("🚀 HITUNG ESTIMASI", use_container_width=True)
-
-# Admin WhatsApp Help Button
-wa_admin_text = urllib.parse.quote("Sugeng siang Admin Jateng Harvest, kula badhe takon tentang persiapan logistik panen...")
-wa_admin_url = f"https://wa.me/6285752762181?text={wa_admin_text}"
-st.link_button("📞 Punya pertanyaan? Tanya ke admin", url=wa_admin_url, use_container_width=True)
-
 st.markdown("</div>", unsafe_allow_html=True)
 
 # Run calculation globally if valid
@@ -1064,7 +1058,7 @@ with tab_predict:
             )
             encoded_msg = urllib.parse.quote(msg_wa)
             wa_url = f"https://wa.me/?text={encoded_msg}"
-            st.link_button("💬 Kirim via WhatsApp", url=wa_url, use_container_width=True)
+            st.link_button("💬 Kirim Ringkasan ke WhatsApp", url=wa_url, use_container_width=True)
         
         st.markdown("<div style='margin-top: 25px;'></div>", unsafe_allow_html=True)
         st.markdown("#### 💬 Masukan Anda Sangat Berarti")
@@ -1286,6 +1280,15 @@ with tab_education:
 
 # Disclaimer & Footer credit
 st.markdown("<hr style='border: 1px solid rgba(255,255,255,0.05); margin-top:40px;'>", unsafe_allow_html=True)
+
+# Admin WhatsApp Help Button (Punya Pertanyaan? Tanya ke Admin)
+wa_admin_text = urllib.parse.quote("Sugeng siang Admin Jateng Harvest, kula badhe takon tentang persiapan logistik panen...")
+wa_admin_url = f"https://wa.me/6285752762181?text={wa_admin_text}"
+
+col_help_l, col_help_m, col_help_r = st.columns([1, 2, 1])
+with col_help_m:
+    st.link_button("❓ Punya pertanyaan? Tanya ke admin", url=wa_admin_url, use_container_width=True)
+
 st.markdown(
     """
     <div style="text-align: center; color: #F8F9FA; font-size: 0.85rem; margin: 20px auto; padding: 15px; background: rgba(255, 183, 3, 0.05); border: 1px dashed rgba(255, 183, 3, 0.25); border-radius: 12px; max-width: 800px;">
