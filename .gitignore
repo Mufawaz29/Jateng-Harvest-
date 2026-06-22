@@ -8,3 +8,6 @@ env/
 .env
 .pytest_cache/
 .vscode/
+.streamlit/secrets.toml
+log_feedback_petani.csv
+telemetri_penggunaan.csv
