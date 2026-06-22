@@ -1087,24 +1087,99 @@ with tab_predict:
             st.link_button("💬 Kirim Ringkasan ke WhatsApp", url=wa_url, use_container_width=True)
         
         st.markdown("<div style='margin-top: 25px;'></div>", unsafe_allow_html=True)
-        st.markdown("#### 💬 Masukan Anda Sangat Berarti")
-        st.caption("Apakah hasil perkiraan ini sesuai dengan kondisi lahan di daerah Anda?")
         
-        if "feedback_submitted" not in st.session_state:
-            st.session_state.feedback_submitted = None
-            
-        feed_col1, feed_col2 = st.columns(2)
-        with feed_col1:
-            if st.button("✔️ Ya, Sesuai", key="btn_feed_yes", use_container_width=True):
-                log_user_feedback(selected_kec, selected_kab, selected_month, manual_luas_tanam, True)
-                st.session_state.feedback_submitted = "Ya"
-        with feed_col2:
-            if st.button("❌ Tidak Sesuai", key="btn_feed_no", use_container_width=True):
-                log_user_feedback(selected_kec, selected_kab, selected_month, manual_luas_tanam, False)
-                st.session_state.feedback_submitted = "Tidak"
+        # CSS Styling for expander feedback buttons
+        st.markdown(
+            """
+            <style>
+                .feed-yes button {
+                    background-color: #2D6A4F !important;
+                    color: #FFFFFF !important;
+                    box-shadow: 0 4px 15px rgba(45, 106, 79, 0.3) !important;
+                }
+                .feed-yes button:hover {
+                    background-color: #1B4332 !important;
+                    box-shadow: 0 8px 25px rgba(27, 67, 50, 0.5) !important;
+                    color: #FFFFFF !important;
+                }
+                .feed-no button {
+                    background-color: #E63946 !important;
+                    color: #FFFFFF !important;
+                    box-shadow: 0 4px 15px rgba(230, 57, 70, 0.3) !important;
+                }
+                .feed-no button:hover {
+                    background-color: #C82333 !important;
+                    box-shadow: 0 8px 25px rgba(200, 35, 51, 0.5) !important;
+                    color: #FFFFFF !important;
+                }
+                .feed-save button {
+                    background-color: #FFB703 !important;
+                    color: #000000 !important;
+                    box-shadow: 0 4px 15px rgba(255, 183, 3, 0.3) !important;
+                }
+                .feed-save button:hover {
+                    background-color: #ffa700 !important;
+                    box-shadow: 0 8px 25px rgba(255, 183, 3, 0.5) !important;
+                    color: #000000 !important;
+                }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+        
+        # Expander Feedback System
+        if "exp_feedback_status" not in st.session_state:
+            st.session_state.exp_feedback_status = None
+        if "exp_feedback_text" not in st.session_state:
+            st.session_state.exp_feedback_text = ""
+        if "exp_feedback_saved" not in st.session_state:
+            st.session_state.exp_feedback_saved = False
+
+        with st.expander("💬 Beri Masukan / Koreksi Data"):
+            col_f1, col_f2 = st.columns(2)
+            with col_f1:
+                st.markdown('<div class="feed-yes">', unsafe_allow_html=True)
+                if st.button("✔️ Data Sesuai", key="btn_feed_yes_exp", use_container_width=True):
+                    log_user_feedback(selected_kec, selected_kab, selected_month, manual_luas_tanam, True)
+                    st.session_state.exp_feedback_status = "sesuai"
+                    st.session_state.exp_feedback_saved = False
+                st.markdown('</div>', unsafe_allow_html=True)
+            with col_f2:
+                st.markdown('<div class="feed-no">', unsafe_allow_html=True)
+                if st.button("❌ Data Tidak Sesuai", key="btn_feed_no_exp", use_container_width=True):
+                    st.session_state.exp_feedback_status = "tidak_sesuai"
+                    st.session_state.exp_feedback_saved = False
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            if st.session_state.exp_feedback_status == "sesuai":
+                st.success("🙏 Terima kasih atas konfirmasinya!")
                 
-        if st.session_state.feedback_submitted is not None:
-            st.success("🙏 Matur nuwun sanget! Masukan panjenengan sampun kami catat sebagai referensi model ke depan.")
+            elif st.session_state.exp_feedback_status == "tidak_sesuai":
+                if not st.session_state.exp_feedback_saved:
+                    feedback_input = st.text_area(
+                        "Masukkan alasan ketidaksesuaian data (misal: luas lahan berbeda, hama, dll.):",
+                        value=st.session_state.exp_feedback_text,
+                        key="feed_text_area"
+                    )
+                    st.markdown('<div class="feed-save">', unsafe_allow_html=True)
+                    if st.button("💾 Simpan Masukan", key="btn_feed_save_exp", use_container_width=True):
+                        if feedback_input.strip() == "":
+                            st.warning("⚠️ Alasan tidak boleh kosong!")
+                        else:
+                            st.session_state.exp_feedback_text = feedback_input
+                            st.session_state.exp_feedback_saved = True
+                            log_user_feedback(selected_kec, selected_kab, selected_month, manual_luas_tanam, False)
+                            st.balloons()
+                    st.markdown('</div>', unsafe_allow_html=True)
+                
+                if st.session_state.exp_feedback_saved:
+                    st.success("🙏 Matur nuwun! Masukan Anda telah disimpan di dalam sistem kami.")
+                    st.info(f"Detail masukan Anda: *\"{st.session_state.exp_feedback_text}\"*")
+                    if st.button("✍️ Tulis Masukan Baru", key="btn_feed_reset_exp"):
+                        st.session_state.exp_feedback_status = None
+                        st.session_state.exp_feedback_text = ""
+                        st.session_state.exp_feedback_saved = False
+                        st.rerun()
 
 # ------------------------------------------
 # TAB 2: COMMUNITY MONITOR (AUTOMATIC HISTORICAL DATA DETECTOR)
