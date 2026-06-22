@@ -306,8 +306,8 @@ def load_historical_data():
         st.error("Gagal memuat dataset `data_siap_ml.csv`.")
         return pd.DataFrame()
 
-def generate_simulated_coordinates(kabupaten, kecamatan, num_points=10):
-    """Generasi koordinat konsisten berdasarkan nama wilayah (hashing) di Jawa Tengah."""
+def generate_simulated_coordinates(kabupaten, kecamatan, total_ton=100.0, total_karung=2000, num_points=10):
+    """Generasi koordinat konsisten berdasarkan nama wilayah (hashing) di Jawa Tengah dengan data estimasi."""
     seed_str = f"{kabupaten}_{kecamatan}"
     import hashlib
     h = hashlib.md5(seed_str.encode('utf-8')).hexdigest()
@@ -324,9 +324,21 @@ def generate_simulated_coordinates(kabupaten, kecamatan, num_points=10):
     lats = base_lat + np.random.uniform(-0.015, 0.015, num_points)
     lons = base_lon + np.random.uniform(-0.015, 0.015, num_points)
     
+    # Distribute total tonnage and sacks randomly across the points
+    shares = np.random.dirichlet(np.ones(num_points))
+    tons_points = total_ton * shares
+    karung_points = (total_karung * shares).astype(int)
+    
+    # Labels for locations
+    lokasi_labels = [f"Kelompok Tani {kecamatan} - Sektor {chr(65+i)}" for i in range(num_points)]
+    
     df_coords = pd.DataFrame({
         'latitude': lats,
-        'longitude': lons
+        'longitude': lons,
+        'Lokasi': lokasi_labels,
+        'Estimasi Hasil (Ton)': np.round(tons_points, 1),
+        'Kebutuhan Karung (Pcs)': karung_points,
+        'Ukuran Titik': tons_points + 5.0 # baseline size so small yields are still visible
     })
     return df_coords
 
@@ -934,77 +946,39 @@ with tab_predict:
         )
         st.plotly_chart(fig_line, use_container_width=True)
 
-        # FITUR: Visualisasi Peta Lahan Panen Komunitas
+        # FITUR: Visualisasi Peta Lahan Panen Komunitas (Plotly Express Mapbox)
         st.markdown("<h4 style='margin-top:30px; margin-bottom:15px;'>🗺️ Peta Distribusi Area Panen (Simulasi Lokasi)</h4>", unsafe_allow_html=True)
+        df_coords = generate_simulated_coordinates(selected_kab, selected_kec, total_ton=total_est_ton, total_karung=total_karung)
         
-        col_map_leg, col_map_real = st.columns([2, 3])
-        with col_map_leg:
-            st.markdown(
-                """
-                <div class="glass-card" style="padding: 15px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.15); background: rgba(45, 106, 79, 0.4); color: #F8F9FA; height: 100%;">
-                    <h5 style="margin-top: 0; color: #FFB703; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; font-weight: 700; font-size: 1rem; letter-spacing: 0.5px;">🗺️ LEGENDA PETA PANEN</h5>
-                    
-                    <!-- Item 1: Bulatan Merah -->
-                    <div style="display: flex; align-items: start; margin-bottom: 12px; gap: 10px;">
-                        <div style="flex-shrink: 0; margin-top: 4px;">
-                            <div style="width: 14px; height: 14px; background: #FF3B30; border-radius: 50%; box-shadow: 0 0 8px #FF3B30; border: 1.5px solid #FFFFFF;"></div>
-                        </div>
-                        <div style="font-size: 0.85rem; line-height: 1.4;">
-                            <b style="color: #FFB703;">Bulatan Merah</b> = Lokasi Panen
-                        </div>
-                    </div>
-                    
-                    <!-- Item 2: Banyaknya Karung (Ukuran Bulatan) -->
-                    <div style="display: flex; align-items: start; margin-bottom: 12px; gap: 10px;">
-                        <div style="flex-shrink: 0; margin-top: 4px; display: flex; flex-direction: column; align-items: center; gap: 4px;">
-                            <span style="font-size: 1.1rem; line-height: 1;">🌾</span>
-                            <div style="display: flex; align-items: center; gap: 3px;">
-                                <div style="width: 6px; height: 6px; background: #FF3B30; border-radius: 50%;"></div>
-                                <div style="width: 12px; height: 12px; background: #FF3B30; border-radius: 50%;"></div>
-                            </div>
-                        </div>
-                        <div style="font-size: 0.85rem; line-height: 1.4;">
-                            <b style="color: #FFB703;">Ukuran Bulatan</b> = Banyaknya Karung<br>
-                            <span style="font-size: 0.75rem; color: #cbd5e1;">(Korelasi ukuran: Kecil & Besar)</span>
-                        </div>
-                    </div>
-                    
-                    <!-- Item 3: Kebutuhan Tenaga Kerja (Kerapatan Bulatan) -->
-                    <div style="display: flex; align-items: start; margin-bottom: 12px; gap: 10px;">
-                        <div style="flex-shrink: 0; margin-top: 4px; display: flex; flex-direction: column; align-items: center; gap: 4px;">
-                            <span style="font-size: 1.1rem; line-height: 1;">🧑‍🌾</span>
-                            <div style="position: relative; width: 22px; height: 12px;">
-                                <div style="position: absolute; left: 0; width: 8px; height: 8px; background: #FF3B30; border-radius: 50%; opacity: 0.8;"></div>
-                                <div style="position: absolute; left: 4px; top: 2px; width: 8px; height: 8px; background: #FF3B30; border-radius: 50%; opacity: 0.8;"></div>
-                                <div style="position: absolute; left: 8px; width: 8px; height: 8px; background: #FF3B30; border-radius: 50%; opacity: 0.8;"></div>
-                            </div>
-                        </div>
-                        <div style="font-size: 0.85rem; line-height: 1.4;">
-                            <b style="color: #FFB703;">Kerapatan Bulatan</b> = Kebutuhan Tenaga Kerja<br>
-                            <span style="font-size: 0.75rem; color: #cbd5e1;">(Tumpang tindih = Kepadatan tinggi)</span>
-                        </div>
-                    </div>
-                    
-                    <!-- Item 4: Perlu Mesin -->
-                    <div style="display: flex; align-items: start; gap: 10px;">
-                        <div style="flex-shrink: 0; margin-top: 4px; display: flex; flex-direction: column; align-items: center; gap: 4px;">
-                            <span style="font-size: 1.1rem; line-height: 1;">🚜</span>
-                            <div style="border: 1px solid #FFB703; border-radius: 3px; padding: 1px; display: inline-block; line-height: 0;">
-                                <div style="width: 8px; height: 8px; background: #FF3B30; border-radius: 50%;"></div>
-                            </div>
-                        </div>
-                        <div style="font-size: 0.85rem; line-height: 1.4;">
-                            <b style="color: #FFB703;">Bulatan di Area Ini</b> = Perlu Mesin<br>
-                            <span style="font-size: 0.75rem; color: #cbd5e1;">(Peta dengan satu lingkaran merah besar)</span>
-                        </div>
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-        with col_map_real:
-            df_coords = generate_simulated_coordinates(selected_kab, selected_kec)
-            st.map(df_coords)
+        # Build map with Plotly express using mapbox_style="carto-darkmatter"
+        fig_map = px.scatter_mapbox(
+            df_coords,
+            lat='latitude',
+            lon='longitude',
+            hover_name='Lokasi',
+            hover_data={
+                'latitude': False,
+                'longitude': False,
+                'Estimasi Hasil (Ton)': ':.1f',
+                'Kebutuhan Karung (Pcs)': ':,',
+                'Ukuran Titik': False
+            },
+            size='Ukuran Titik',
+            size_max=18,
+            zoom=12,
+            height=400
+        )
+        
+        # Conspicuous red dots
+        fig_map.update_traces(marker=dict(color='#FF4B4B', opacity=0.85))
+        fig_map.update_layout(
+            mapbox_style="carto-darkmatter",
+            margin={"r":0,"t":0,"l":0,"b":0},
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font_color='#F8F9FA'
+        )
+        st.plotly_chart(fig_map, use_container_width=True)
 
         # Rincian per bulan
         st.markdown("<h4 style='margin-top:30px; margin-bottom:15px;'>📅 Rincian Persiapan Tiap Bulan</h4>", unsafe_allow_html=True)
