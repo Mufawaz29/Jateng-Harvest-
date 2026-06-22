@@ -425,54 +425,69 @@ def log_user_feedback(kecamatan, kabupaten, bulan_tanam, luas_tanam, akurat):
 
 class HarvestPDF(FPDF):
     def header(self):
-        self.set_font("helvetica", "B", 16)
-        self.cell(0, 10, "KARTU PERSIAPAN LOGISTIK PANEN", ln=True, align="C")
-        self.set_font("helvetica", "", 10)
-        self.cell(0, 6, "Sistem Informasi Manajemen Logistik Pertanian Jawa Tengah", ln=True, align="C")
+        self.set_font("helvetica", "B", 18)
+        self.cell(0, 10, "KARTU SAKTI PERSIAPAN PANEN", ln=True, align="C")
+        self.set_font("helvetica", "", 11)
+        self.cell(0, 6, "Jateng Harvest - Perencanaan & Kebutuhan Logistik Tani", ln=True, align="C")
         self.line(10, 28, 200, 28)
         self.ln(10)
 
     def footer(self):
         self.set_y(-15)
-        self.set_font("helvetica", "I", 8)
-        self.cell(0, 10, f"Halaman {self.page_no()} | Dokumen dicetak otomatis (Tanpa Login & Privasi Terlindungi)", align="C")
+        self.set_font("helvetica", "I", 9)
+        self.cell(0, 10, f"Halaman {self.page_no()} | Dicetak otomatis untuk Pegangan Kelompok Tani & Pengepul", align="C")
 
 def generate_pdf_report(kabupaten, kecamatan, bulan_tanam, luas_tanam, as_prod, pred_results):
     """Tugas 1: Implementasi Fitur Cetak Laporan PDF (User Empowerment)."""
     pdf = HarvestPDF()
     pdf.add_page()
     
-    # Rincian Input
-    pdf.set_font("helvetica", "B", 12)
-    pdf.cell(0, 8, "Rincian Lokasi & Input Lahan:", ln=True)
-    pdf.set_font("helvetica", "", 11)
-    pdf.cell(0, 6, f"Kabupaten: {kabupaten} | Kecamatan: {kecamatan}", ln=True)
-    pdf.cell(0, 6, f"Bulan Tanam Terakhir: {bulan_tanam} | Luas Tanam: {luas_tanam:,.1f} Ha", ln=True)
-    pdf.cell(0, 6, f"Asumsi Produktivitas: {as_prod:.1f} Ton/Ha", ln=True)
+    # Rincian Lokasi
+    pdf.set_font("helvetica", "B", 13)
+    pdf.cell(0, 8, "LOKASI & KONDISI LAHAN:", ln=True)
+    pdf.set_font("helvetica", "", 12)
+    pdf.cell(0, 6, f" Wilayah: Kecamatan {kecamatan}, Kabupaten {kabupaten}", ln=True)
+    pdf.cell(0, 6, f" Bulan Tanam: {bulan_tanam} | Luas Lahan: {luas_tanam:,.1f} Hektar / Bau", ln=True)
+    pdf.cell(0, 6, f" Rata-rata Hasil Ubinan: {as_prod:.1f} Ton/Hektar", ln=True)
     pdf.ln(8)
     
-    # Hasil Perhitungan & Rencana Logistik
+    # Hitung nilai total kumulatif
+    total_est_ha = sum([p['Prediksi_Ha'] for p in pred_results])
+    total_est_ton = total_est_ha * as_prod
+    total_karung = total_est_ton * 20
+    total_buruh = math.ceil(total_est_ha / 2.0)
+    
+    # Ringkasan Kebutuhan Utama (Besar & Jelas)
+    pdf.set_font("helvetica", "B", 13)
+    pdf.cell(0, 8, "RINGKASAN TOTAL LOGISTIK (3 BULAN KE DEPAN):", ln=True)
+    
     pdf.set_font("helvetica", "B", 12)
-    pdf.cell(0, 8, "Rencana Preskriptif Logistik 3 Bulan ke Depan:", ln=True)
-    pdf.ln(4)
+    pdf.cell(0, 7, f" [1] TOTAL ESTIMASI HASIL   : {total_est_ton:,.1f} Ton", ln=True)
+    pdf.cell(0, 7, f" [2] SIAPKAN KARUNG (50 KG) : {int(total_karung):,} Lembar", ln=True)
+    pdf.cell(0, 7, f" [3] BUTUH TENAGA KERJA     : {total_buruh:,} Orang (Panen & Angkut)", ln=True)
+    pdf.ln(8)
+    
+    # Rencana Bulanan (Font Lebih Besar)
+    pdf.set_font("helvetica", "B", 13)
+    pdf.cell(0, 8, "RINCIAN PERSIAPAN TIAP BULAN:", ln=True)
+    pdf.ln(2)
     
     for idx, pred in enumerate(pred_results):
-        pdf.set_font("helvetica", "B", 11)
-        pdf.cell(0, 6, f"Bulan Ke-{idx+1}: {pred['Bulan_Nama']} (Estimasi Panen: {pred['Prediksi_Ha']:,.1f} Ha)", ln=True)
+        pdf.set_font("helvetica", "B", 12)
+        pdf.cell(0, 7, f" Bulan {pred['Bulan_Nama']} (Estimasi Panen: {pred['Prediksi_Ha']:,.1f} Ha)", ln=True)
         
-        # Hitung logistik
+        # Hitung logistik bulanan
         ha = pred['Prediksi_Ha']
         tons = ha * as_prod
         sacks = math.ceil(tons * 20)
         harvesters = math.ceil(ha / 15.0)
         drying = tons * 12
-        storage = tons * 1.8
         
-        pdf.set_font("helvetica", "", 10)
-        pdf.cell(0, 5, f" - Segera pesan {sacks:,} lembar karung gabah (kapasitas 50 kg).", ln=True)
-        pdf.cell(0, 5, f" - Siapkan {harvesters} unit combine harvester (untuk panen raya dalam 10 hari).", ln=True)
-        pdf.cell(0, 5, f" - Luas lantai jemur minimal: {drying:,.0f} m² | Volume gudang: {storage:,.0f} m³.", ln=True)
-        pdf.ln(6)
+        pdf.set_font("helvetica", "", 11)
+        pdf.cell(0, 6, f"   * Karung  : Pesan {sacks:,} lembar karung dari sekarang.", ln=True)
+        pdf.cell(0, 6, f"   * Mesin   : Butuh {harvesters} unit Combine Harvester.", ln=True)
+        pdf.cell(0, 6, f"   * Jemuran : Siapkan lantai jemur minimal {drying:,.0f} m2.", ln=True)
+        pdf.ln(4)
         
     return bytes(pdf.output())
 
@@ -738,9 +753,9 @@ st.sidebar.markdown(
 st.sidebar.markdown("<hr style='border: 1px solid rgba(255,255,255,0.1); margin-top:0px;'>", unsafe_allow_html=True)
 
 # Custom metrics inputs for recommendations
-st.sidebar.markdown("### ⚙️ Parameter Produktivitas")
+st.sidebar.markdown("### ⚙️ Hasil Ubinan & Produktivitas")
 productivity_rate = st.sidebar.slider(
-    "Rata-rata Produktivitas (Ton/Ha)",
+    "Berapa hasil panen biasanya? (ton per hektar)",
     min_value=3.0,
     max_value=10.0,
     value=5.8,
@@ -791,7 +806,7 @@ st.markdown(
 
 # Bagian 2: Area Input (Tengah Atas)
 st.markdown("<div class='glass-card'>", unsafe_allow_html=True)
-st.markdown("<h3 style='margin-top:0; color:#FFB703;'>📍 Pilih Wilayah Lahan Anda</h3>", unsafe_allow_html=True)
+st.markdown("<h3 style='margin-top:0; color:#FFB703;'>📍 Isi kondisi lahan Anda</h3>", unsafe_allow_html=True)
 
 if not df_hist.empty:
     list_kabupaten = sorted(df_hist['Kabupaten'].unique())
@@ -825,12 +840,18 @@ if not df_hist.empty:
 
 is_valid_input = True
 with col_inp2:
-    manual_luas_tanam = st.number_input("Ketik luas lahan Anda (Hektar):", min_value=0.0, max_value=15000.0, value=default_luas_tanam, step=10.0)
+    manual_luas_tanam = st.number_input("Ketik luas lahan Anda (Hektar / Bau):", min_value=0.0, max_value=15000.0, value=default_luas_tanam, step=10.0)
     if manual_luas_tanam <= 0.0:
         st.error("⚠️ Luas lahan harus lebih besar dari 0 Hektar agar estimasi dapat dihitung!")
         is_valid_input = False
 
 hitung_btn = st.button("🚀 HITUNG ESTIMASI", use_container_width=True)
+
+# Admin WhatsApp Help Button
+wa_admin_text = urllib.parse.quote("Sugeng siang Admin Jateng Harvest, kula badhe takon tentang persiapan logistik panen...")
+wa_admin_url = f"https://wa.me/6285752762181?text={wa_admin_text}"
+st.link_button("📞 Punya pertanyaan? Tanya ke admin", url=wa_admin_url, use_container_width=True)
+
 st.markdown("</div>", unsafe_allow_html=True)
 
 # Run calculation globally if valid
@@ -886,9 +907,10 @@ with tab_predict:
         with mc1:
             st.markdown(
                 f"""
-                <div class="glass-card" style="border-top: 4px solid #FFB703 !important; text-align: center;">
-                    <span style="font-size:0.8rem; color:#FFB703; font-weight:700; text-transform:uppercase;">ESTIMASI HASIL</span>
-                    <div style="font-size:2.2rem; color:#FFB703; font-weight:800; margin:10px 0;">{total_est_ton:,.1f} Ton</div>
+                <div class="glass-card" style="border-top: 4px solid #FFB703 !important; text-align: center; padding: 20px 10px;">
+                    <div style="font-size: 2.5rem; margin-bottom: 5px;">🌾</div>
+                    <span style="font-size:0.85rem; color:#FFB703; font-weight:700; text-transform:uppercase;">TOTAL HASIL PANEN</span>
+                    <div style="font-size:2.0rem; color:#FFB703; font-weight:800; margin:10px 0;">{total_est_ton:,.1f} Ton</div>
                     <p style="font-size:0.85rem; color:#F8F9FA; margin:0; opacity: 0.9;">Dari total {total_est_ha:,.1f} Hektar panen</p>
                 </div>
                 """,
@@ -897,9 +919,10 @@ with tab_predict:
         with mc2:
             st.markdown(
                 f"""
-                <div class="glass-card" style="border-top: 4px solid #FFB703 !important; text-align: center;">
-                    <span style="font-size:0.8rem; color:#FFB703; font-weight:700; text-transform:uppercase;">BUTUH KARUNG</span>
-                    <div style="font-size:2.2rem; color:#F8F9FA; font-weight:800; margin:10px 0;">{int(total_karung):,} Lembar</div>
+                <div class="glass-card" style="border-top: 4px solid #FFB703 !important; text-align: center; padding: 20px 10px;">
+                    <div style="font-size: 2.5rem; margin-bottom: 5px;">🛍️</div>
+                    <span style="font-size:0.85rem; color:#FFB703; font-weight:700; text-transform:uppercase;">SIAPKAN KARUNG</span>
+                    <div style="font-size:2.0rem; color:#F8F9FA; font-weight:800; margin:10px 0;">{int(total_karung):,} Lembar</div>
                     <p style="font-size:0.85rem; color:#F8F9FA; margin:0; opacity: 0.9;">Kapasitas karung 50 Kg</p>
                 </div>
                 """,
@@ -908,9 +931,10 @@ with tab_predict:
         with mc3:
             st.markdown(
                 f"""
-                <div class="glass-card" style="border-top: 4px solid #FFB703 !important; text-align: center;">
-                    <span style="font-size:0.8rem; color:#FFB703; font-weight:700; text-transform:uppercase;">BUTUH BURUH</span>
-                    <div style="font-size:2.2rem; color:#F8F9FA; font-weight:800; margin:10px 0;">{total_buruh:,} Orang</div>
+                <div class="glass-card" style="border-top: 4px solid #FFB703 !important; text-align: center; padding: 20px 10px;">
+                    <div style="font-size: 2.5rem; margin-bottom: 5px;">👷</div>
+                    <span style="font-size:0.85rem; color:#FFB703; font-weight:700; text-transform:uppercase;">BUTUH TENAGA KERJA</span>
+                    <div style="font-size:2.0rem; color:#F8F9FA; font-weight:800; margin:10px 0;">{total_buruh:,} Orang</div>
                     <p style="font-size:0.85rem; color:#F8F9FA; margin:0; opacity: 0.9;">Tenaga panen & angkut</p>
                 </div>
                 """,
