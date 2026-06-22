@@ -198,6 +198,33 @@ custom_css = """
         box-shadow: 0 8px 25px rgba(255,255,255,0.4) !important;
     }
 
+    /* WhatsApp Button Styling */
+    div.stLinkButton > a {
+        background-color: #25D366 !important;
+        color: #FFFFFF !important;
+        border: none !important;
+        font-weight: 800 !important;
+        font-size: 1.1rem !important;
+        padding: 12px 28px !important;
+        border-radius: 50px !important;
+        box-shadow: 0 4px 15px rgba(37, 211, 102, 0.3) !important;
+        text-transform: uppercase;
+        width: 100% !important;
+        margin: 0 auto !important;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none !important;
+        transition: all 0.2s ease-in-out !important;
+    }
+    div.stLinkButton > a:hover {
+        background-color: #128C7E !important;
+        color: #FFFFFF !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 25px rgba(18, 140, 126, 0.5) !important;
+        text-decoration: none !important;
+    }
+
     /* Subtext formatting */
     .sub-text {
         font-size: 0.85rem;
@@ -278,6 +305,30 @@ def load_historical_data():
     else:
         st.error("Gagal memuat dataset `data_siap_ml.csv`.")
         return pd.DataFrame()
+
+def generate_simulated_coordinates(kabupaten, kecamatan, num_points=10):
+    """Generasi koordinat konsisten berdasarkan nama wilayah (hashing) di Jawa Tengah."""
+    seed_str = f"{kabupaten}_{kecamatan}"
+    import hashlib
+    h = hashlib.md5(seed_str.encode('utf-8')).hexdigest()
+    
+    # Map hash to a base latitude and longitude in Central Java
+    val_lat = int(h[:8], 16) / 0xffffffff
+    val_lon = int(h[8:16], 16) / 0xffffffff
+    
+    base_lat = -7.3 + (val_lat - 0.5) * 0.8
+    base_lon = 110.0 + (val_lon - 0.5) * 1.2
+    
+    # Generate points around base coordinate
+    np.random.seed(int(h[:8], 16) % 10000)
+    lats = base_lat + np.random.uniform(-0.015, 0.015, num_points)
+    lons = base_lon + np.random.uniform(-0.015, 0.015, num_points)
+    
+    df_coords = pd.DataFrame({
+        'latitude': lats,
+        'longitude': lons
+    })
+    return df_coords
 
 # Initialize resources
 model, le_kab, le_kec = load_models_and_encoders()
@@ -760,23 +811,33 @@ if not df_hist.empty:
     if baseline > 0:
         default_luas_tanam = round(baseline, 2)
 
+is_valid_input = True
 with col_inp2:
     manual_luas_tanam = st.number_input("Ketik luas lahan Anda (Hektar):", min_value=0.0, max_value=15000.0, value=default_luas_tanam, step=10.0)
+    if manual_luas_tanam <= 0.0:
+        st.error("⚠️ Luas lahan harus lebih besar dari 0 Hektar agar estimasi dapat dihitung!")
+        is_valid_input = False
 
 hitung_btn = st.button("🚀 HITUNG ESTIMASI", use_container_width=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# Run calculation globally
-predictions = get_3_month_predictions(df_hist, selected_kab, selected_kec, selected_month, manual_luas_tanam)
+# Run calculation globally if valid
+if is_valid_input:
+    predictions = get_3_month_predictions(df_hist, selected_kab, selected_kec, selected_month, manual_luas_tanam)
+    # Calculate aggregate production for upcoming 3 months
+    total_est_ha = sum([p['Prediksi_Ha'] for p in predictions])
+    total_est_ton = total_est_ha * productivity_rate
+    total_karung = total_est_ton * 20
+    total_buruh = math.ceil(total_est_ha / 2.0)
+else:
+    predictions = []
+    total_est_ha = 0.0
+    total_est_ton = 0.0
+    total_karung = 0
+    total_buruh = 0
 
-# Calculate aggregate production for upcoming 3 months
-total_est_ha = sum([p['Prediksi_Ha'] for p in predictions])
-total_est_ton = total_est_ha * productivity_rate
-total_karung = total_est_ton * 20
-total_buruh = math.ceil(total_est_ha / 2.0)
-
-# Log telemetry only when button is clicked
-if hitung_btn:
+# Log telemetry only when button is clicked and input is valid
+if hitung_btn and is_valid_input:
     log_anonymous_activity(selected_kec, selected_kab, manual_luas_tanam, productivity_rate, total_est_ton)
 
 # MAIN TABS
@@ -792,136 +853,166 @@ tab_predict, tab_community, tab_education = st.tabs([
 with tab_predict:
     st.markdown(f"### 🌾 Perkiraan Panen: Kecamatan **{selected_kec}**, {selected_kab}")
     
-    st.markdown(
-        f"""
-        <div class="glass-card" style="text-align: center; margin-bottom: 25px;">
-            📅 <b>Bulan Input:</b> {selected_month} &nbsp;|&nbsp; 
-            🌱 <b>Luas Tanam:</b> {manual_luas_tanam:,.1f} Ha &nbsp;|&nbsp;
-            ⚙️ <b>Asumsi Produktivitas:</b> {productivity_rate:.1f} Ton/Ha
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
-    
-    # Bagian 3: Visualisasi Hasil (Kartu Informasi / Metrics Card Kontras Tinggi)
-    st.markdown("<h4 style='margin-top:25px; margin-bottom:15px;'>📊 Ringkasan Kebutuhan 3 Bulan Ke Depan</h4>", unsafe_allow_html=True)
-    
-    mc1, mc2, mc3 = st.columns(3)
-    with mc1:
+    if not is_valid_input:
+        st.warning("⚠️ Silakan masukkan Luas Lahan yang valid (lebih besar dari 0 Hektar) untuk menampilkan hasil perhitungan logistik.")
+    else:
         st.markdown(
             f"""
-            <div class="glass-card" style="border-top: 4px solid #FFB703 !important; text-align: center;">
-                <span style="font-size:0.8rem; color:#FFB703; font-weight:700; text-transform:uppercase;">ESTIMASI HASIL</span>
-                <div style="font-size:2.2rem; color:#FFB703; font-weight:800; margin:10px 0;">{total_est_ton:,.1f} Ton</div>
-                <p style="font-size:0.85rem; color:#F8F9FA; margin:0; opacity: 0.9;">Dari total {total_est_ha:,.1f} Hektar panen</p>
+            <div class="glass-card" style="text-align: center; margin-bottom: 25px;">
+                📅 <b>Bulan Input:</b> {selected_month} &nbsp;|&nbsp; 
+                🌱 <b>Luas Tanam:</b> {manual_luas_tanam:,.1f} Ha &nbsp;|&nbsp;
+                ⚙️ <b>Asumsi Produktivitas:</b> {productivity_rate:.1f} Ton/Ha
             </div>
             """,
             unsafe_allow_html=True
         )
-    with mc2:
-        st.markdown(
-            f"""
-            <div class="glass-card" style="border-top: 4px solid #FFB703 !important; text-align: center;">
-                <span style="font-size:0.8rem; color:#FFB703; font-weight:700; text-transform:uppercase;">BUTUH KARUNG</span>
-                <div style="font-size:2.2rem; color:#F8F9FA; font-weight:800; margin:10px 0;">{int(total_karung):,} Lembar</div>
-                <p style="font-size:0.85rem; color:#F8F9FA; margin:0; opacity: 0.9;">Kapasitas karung 50 Kg</p>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-    with mc3:
-        st.markdown(
-            f"""
-            <div class="glass-card" style="border-top: 4px solid #FFB703 !important; text-align: center;">
-                <span style="font-size:0.8rem; color:#FFB703; font-weight:700; text-transform:uppercase;">BUTUH BURUH</span>
-                <div style="font-size:2.2rem; color:#F8F9FA; font-weight:800; margin:10px 0;">{total_buruh:,} Orang</div>
-                <p style="font-size:0.85rem; color:#F8F9FA; margin:0; opacity: 0.9;">Tenaga panen & angkut</p>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-    # Bagian 4: Grafik Tren (Bawah Hasil)
-    st.markdown("<h4 style='margin-top:30px; margin-bottom:15px;'>📈 Grafik Garis Puncak Panen</h4>", unsafe_allow_html=True)
-    
-    months_plot = [p['Bulan_Nama'] for p in predictions]
-    preds_plot = [p['Prediksi_Ha'] for p in predictions]
-    
-    fig_line = go.Figure()
-    fig_line.add_trace(go.Scatter(
-        x=months_plot,
-        y=preds_plot,
-        line=dict(color='#FFB703', width=4),
-        marker=dict(size=12, color='#FFB703'),
-        mode='lines+markers+text',
-        text=[f"{p:,.1f} Ha" for p in preds_plot],
-        textfont=dict(color='#F8F9FA'),
-        textposition="top center",
-        name="Luas Panen"
-    ))
-    fig_line.update_layout(
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font_color='#F8F9FA',
-        margin=dict(l=30, r=30, t=20, b=30),
-        height=280,
-        xaxis=dict(showgrid=False),
-        yaxis=dict(title="Hektar (Ha)", showgrid=True, gridcolor='rgba(255,255,255,0.1)')
-    )
-    st.plotly_chart(fig_line, use_container_width=True)
-
-    # Rincian per bulan
-    st.markdown("#### 📅 Rincian Persiapan Tiap Bulan")
-    inst_tabs = st.tabs([f"Bulan {p['Bulan_Nama']}" for p in predictions])
-    for idx, pred in enumerate(predictions):
-        with inst_tabs[idx]:
-            ha = pred['Prediksi_Ha']
-            tons = ha * productivity_rate
-            sacks = math.ceil(tons * 20)
-            harv = math.ceil(ha / 15.0)
-            dry = tons * 12
-            
+        
+        # Bagian 3: Visualisasi Hasil (Kartu Informasi / Metrics Card Kontras Tinggi)
+        st.markdown("<h4 style='margin-top:25px; margin-bottom:15px;'>📊 Ringkasan Kebutuhan 3 Bulan Ke Depan</h4>", unsafe_allow_html=True)
+        
+        mc1, mc2, mc3 = st.columns(3)
+        with mc1:
             st.markdown(
                 f"""
-                <div style="background: rgba(45, 106, 79, 0.4); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); color: #F8F9FA;">
-                    <p style="margin: 0 0 10px 0; font-size: 1.1rem; color: #FFB703;"><b>Instruksi Kerja Bulan {pred['Bulan_Nama']}:</b></p>
-                    <ul style="padding-left: 20px; color: #F8F9FA; line-height: 1.8; opacity: 0.9;">
-                        <li>Perkiraan panen seluas <b>{ha:,.1f} Hektar</b> (sekitar <b>{tons:,.1f} Ton</b> gabah basah).</li>
-                        <li><b>Karung:</b> Pesan <b>{sacks:,}</b> lembar karung dari sekarang.</li>
-                        <li><b>Alat Mesin:</b> Hubungi penyedia sewa untuk <b>{harv}</b> unit mesin <i>Combine Harvester</i>.</li>
-                        <li><b>Tempat Jemur:</b> Siapkan area jemur minimal seluas <b>{dry:,.0f} m²</b>.</li>
-                    </ul>
+                <div class="glass-card" style="border-top: 4px solid #FFB703 !important; text-align: center;">
+                    <span style="font-size:0.8rem; color:#FFB703; font-weight:700; text-transform:uppercase;">ESTIMASI HASIL</span>
+                    <div style="font-size:2.2rem; color:#FFB703; font-weight:800; margin:10px 0;">{total_est_ton:,.1f} Ton</div>
+                    <p style="font-size:0.85rem; color:#F8F9FA; margin:0; opacity: 0.9;">Dari total {total_est_ha:,.1f} Hektar panen</p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        with mc2:
+            st.markdown(
+                f"""
+                <div class="glass-card" style="border-top: 4px solid #FFB703 !important; text-align: center;">
+                    <span style="font-size:0.8rem; color:#FFB703; font-weight:700; text-transform:uppercase;">BUTUH KARUNG</span>
+                    <div style="font-size:2.2rem; color:#F8F9FA; font-weight:800; margin:10px 0;">{int(total_karung):,} Lembar</div>
+                    <p style="font-size:0.85rem; color:#F8F9FA; margin:0; opacity: 0.9;">Kapasitas karung 50 Kg</p>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+        with mc3:
+            st.markdown(
+                f"""
+                <div class="glass-card" style="border-top: 4px solid #FFB703 !important; text-align: center;">
+                    <span style="font-size:0.8rem; color:#FFB703; font-weight:700; text-transform:uppercase;">BUTUH BURUH</span>
+                    <div style="font-size:2.2rem; color:#F8F9FA; font-weight:800; margin:10px 0;">{total_buruh:,} Orang</div>
+                    <p style="font-size:0.85rem; color:#F8F9FA; margin:0; opacity: 0.9;">Tenaga panen & angkut</p>
                 </div>
                 """,
                 unsafe_allow_html=True
             )
 
-    # Bagian 5: Tombol Aksi (Paling Bawah)
-    st.markdown("<hr style='border: 1px solid rgba(255,255,255,0.1); margin-top:35px; margin-bottom:20px;'>", unsafe_allow_html=True)
-    
-    st.markdown("### 📥 Cetak Kartu Instruksi Anda")
-    st.caption("Cetak rangkuman instruksi fisik untuk dibawa ke kelompok tani / penyedia alat mesin pertanian. Mobile-friendly!")
-    
-    pdf_data = generate_pdf_report(selected_kab, selected_kec, selected_month, manual_luas_tanam, productivity_rate, predictions)
-    st.download_button(
-        label="Download PDF Kartu Persiapan",
-        data=pdf_data,
-        file_name=f"Kartu_Persiapan_Panen_{selected_kec}_{selected_kab}.pdf",
-        mime="application/pdf",
-        key="btn_pdf_download"
-    )
-    
-    st.markdown("#### 💬 Masukan Anda Sangat Berarti")
-    st.caption("Apakah hasil perkiraan ini sesuai dengan kondisi lahan di daerah Anda?")
-    feed_col1, feed_col2 = st.columns(2)
-    with feed_col1:
-        if st.button("✔️ Ya, Sesuai", key="btn_feed_yes", use_container_width=True):
-            log_user_feedback(selected_kec, selected_kab, selected_month, manual_luas_tanam, True)
-            st.success("Maturnuwun atas masukan Anda!")
-    with feed_col2:
-        if st.button("❌ Tidak Sesuai", key="btn_feed_no", use_container_width=True):
-            log_user_feedback(selected_kec, selected_kab, selected_month, manual_luas_tanam, False)
-            st.success("Maturnuwun! Masukan Anda membantu kami menyempurnakan perhitungan.")
+        # Bagian 4: Grafik Tren (Bawah Hasil)
+        st.markdown("<h4 style='margin-top:30px; margin-bottom:15px;'>📈 Grafik Garis Puncak Panen</h4>", unsafe_allow_html=True)
+        
+        months_plot = [p['Bulan_Nama'] for p in predictions]
+        preds_plot = [p['Prediksi_Ha'] for p in predictions]
+        
+        fig_line = go.Figure()
+        fig_line.add_trace(go.Scatter(
+            x=months_plot,
+            y=preds_plot,
+            line=dict(color='#FFB703', width=4),
+            marker=dict(size=12, color='#FFB703'),
+            mode='lines+markers+text',
+            text=[f"{p:,.1f} Ha" for p in preds_plot],
+            textfont=dict(color='#F8F9FA'),
+            textposition="top center",
+            name="Luas Panen"
+        ))
+        fig_line.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font_color='#F8F9FA',
+            margin=dict(l=30, r=30, t=20, b=30),
+            height=280,
+            xaxis=dict(showgrid=False),
+            yaxis=dict(title="Hektar (Ha)", showgrid=True, gridcolor='rgba(255,255,255,0.1)')
+        )
+        st.plotly_chart(fig_line, use_container_width=True)
+
+        # FITUR: Visualisasi Peta Lahan Panen Komunitas
+        st.markdown("<h4 style='margin-top:30px; margin-bottom:15px;'>🗺️ Peta Distribusi Area Panen (Simulasi Lokasi)</h4>", unsafe_allow_html=True)
+        df_coords = generate_simulated_coordinates(selected_kab, selected_kec)
+        st.map(df_coords)
+
+        # Rincian per bulan
+        st.markdown("<h4 style='margin-top:30px; margin-bottom:15px;'>📅 Rincian Persiapan Tiap Bulan</h4>", unsafe_allow_html=True)
+        inst_tabs = st.tabs([f"Bulan {p['Bulan_Nama']}" for p in predictions])
+        for idx, pred in enumerate(predictions):
+            with inst_tabs[idx]:
+                ha = pred['Prediksi_Ha']
+                tons = ha * productivity_rate
+                sacks = math.ceil(tons * 20)
+                harv = math.ceil(ha / 15.0)
+                dry = tons * 12
+                
+                st.markdown(
+                    f"""
+                    <div style="background: rgba(45, 106, 79, 0.4); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.1); color: #F8F9FA;">
+                        <p style="margin: 0 0 10px 0; font-size: 1.1rem; color: #FFB703;"><b>Instruksi Kerja Bulan {pred['Bulan_Nama']}:</b></p>
+                        <ul style="padding-left: 20px; color: #F8F9FA; line-height: 1.8; opacity: 0.9;">
+                            <li>Perkiraan panen seluas <b>{ha:,.1f} Hektar</b> (sekitar <b>{tons:,.1f} Ton</b> gabah basah).</li>
+                            <li><b>Karung:</b> Pesan <b>{sacks:,}</b> lembar karung dari sekarang.</li>
+                            <li><b>Alat Mesin:</b> Hubungi penyedia sewa untuk <b>{harv}</b> unit mesin <i>Combine Harvester</i>.</li>
+                            <li><b>Tempat Jemur:</b> Siapkan area jemur minimal seluas <b>{dry:,.0f} m²</b>.</li>
+                        </ul>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+        # Bagian 5: Tombol Aksi (Paling Bawah)
+        st.markdown("<hr style='border: 1px solid rgba(255,255,255,0.1); margin-top:35px; margin-bottom:20px;'>", unsafe_allow_html=True)
+        
+        st.markdown("### 📥 Simpan / Bagikan Kartu Instruksi Anda")
+        st.caption("Cetak rangkuman instruksi fisik atau kirimkan via WhatsApp ke kelompok tani Anda. Mobile-friendly!")
+        
+        col_actions1, col_actions2 = st.columns(2)
+        with col_actions1:
+            pdf_data = generate_pdf_report(selected_kab, selected_kec, selected_month, manual_luas_tanam, productivity_rate, predictions)
+            st.download_button(
+                label="Download PDF Kartu Persiapan",
+                data=pdf_data,
+                file_name=f"Kartu_Persiapan_Panen_{selected_kec}_{selected_kab}.pdf",
+                mime="application/pdf",
+                key="btn_pdf_download",
+                use_container_width=True
+            )
+        with col_actions2:
+            # FITUR: Ekspor ke WhatsApp
+            msg_wa = (
+                f"🌾 *Rangkuman Estimasi Panen: Jateng Harvest* 🌾\n\n"
+                f"📍 *Wilayah:* Kecamatan {selected_kec}, {selected_kab}\n"
+                f"📅 *Bulan Input:* {selected_month}\n"
+                f"🌱 *Luas Lahan:* {manual_luas_tanam:,.1f} Ha\n"
+                f"⚙️ *Asumsi Produktivitas:* {productivity_rate:.1f} Ton/Ha\n\n"
+                f"📊 *Hasil Perkiraan 3 Bulan Ke Depan:*\n"
+                f"🔹 *Estimasi Hasil:* {total_est_ton:,.1f} Ton\n"
+                f"🔹 *Kebutuhan Karung:* {int(total_karung):,} Lembar (50 Kg)\n"
+                f"🔹 *Kebutuhan Buruh:* {total_buruh:,} Orang\n\n"
+                f"Selengkapnya cek di: https://vshrcu2djycpferb4tujo6.streamlit.app/\n"
+                f"Maturnuwun! 🌾"
+            )
+            encoded_msg = urllib.parse.quote(msg_wa)
+            wa_url = f"https://wa.me/?text={encoded_msg}"
+            st.link_button("💬 Kirim via WhatsApp", url=wa_url, use_container_width=True)
+        
+        st.markdown("<div style='margin-top: 25px;'></div>", unsafe_allow_html=True)
+        st.markdown("#### 💬 Masukan Anda Sangat Berarti")
+        st.caption("Apakah hasil perkiraan ini sesuai dengan kondisi lahan di daerah Anda?")
+        feed_col1, feed_col2 = st.columns(2)
+        with feed_col1:
+            if st.button("✔️ Ya, Sesuai", key="btn_feed_yes", use_container_width=True):
+                log_user_feedback(selected_kec, selected_kab, selected_month, manual_luas_tanam, True)
+                st.success("Maturnuwun atas masukan Anda!")
+        with feed_col2:
+            if st.button("❌ Tidak Sesuai", key="btn_feed_no", use_container_width=True):
+                log_user_feedback(selected_kec, selected_kab, selected_month, manual_luas_tanam, False)
+                st.success("Maturnuwun! Masukan Anda membantu kami menyempurnakan perhitungan.")
 
 # ------------------------------------------
 # TAB 2: COMMUNITY MONITOR (AUTOMATIC HISTORICAL DATA DETECTOR)
@@ -1128,8 +1219,16 @@ with tab_education:
         )
         st.plotly_chart(fig_edu, use_container_width=True)
 
-# Footer credit
+# Disclaimer & Footer credit
 st.markdown("<hr style='border: 1px solid rgba(255,255,255,0.05); margin-top:40px;'>", unsafe_allow_html=True)
+st.markdown(
+    """
+    <div style="text-align: center; color: #F8F9FA; font-size: 0.85rem; margin: 20px auto; padding: 15px; background: rgba(255, 183, 3, 0.05); border: 1px dashed rgba(255, 183, 3, 0.25); border-radius: 12px; max-width: 800px;">
+        ⚠️ <b>Disclaimer:</b> Angka ini merupakan estimasi matematis berbasis asumsi model. Hasil riil di lapangan dapat bervariasi bergantung pada cuaca, hama, dan kondisi lahan. Harap gunakan data ini sebagai referensi pendukung, bukan acuan mutlak.
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 st.markdown(
     """
     <div style="text-align: center; color: #64748b; font-size: 0.85rem; padding-bottom: 20px;">
