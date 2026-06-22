@@ -1013,10 +1013,10 @@ with tab_predict:
             height=400
         )
         
-        # Conspicuous red dots
-        fig_map.update_traces(marker=dict(color='#FF4B4B', opacity=0.85))
+        # Conspicuous crimson dots
+        fig_map.update_traces(marker=dict(color='crimson', opacity=0.85))
         fig_map.update_layout(
-            mapbox_style="carto-darkmatter",
+            mapbox_style="open-street-map",
             margin={"r":0,"t":0,"l":0,"b":0},
             paper_bgcolor='rgba(0,0,0,0)',
             plot_bgcolor='rgba(0,0,0,0)',
