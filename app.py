@@ -262,6 +262,33 @@ custom_css = """
     div[role="option"]:hover {
         background-color: #1B4332 !important;
     }
+
+    /* Floating WhatsApp Button styling */
+    .floating-wa {
+        position: fixed;
+        width: 60px;
+        height: 60px;
+        bottom: 25px;
+        right: 25px;
+        background-color: #25d366 !important;
+        color: #FFFFFF !important;
+        border-radius: 50px !important;
+        text-align: center;
+        font-size: 32px !important;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4) !important;
+        z-index: 999999 !important;
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        text-decoration: none !important;
+        transition: all 0.3s ease-in-out !important;
+    }
+    .floating-wa:hover {
+        background-color: #128c7e !important;
+        transform: scale(1.1) !important;
+        box-shadow: 0 8px 25px rgba(18, 140, 126, 0.6) !important;
+        text-decoration: none !important;
+    }
 </style>
 """
 st.markdown(f"<style>{bg_img_css}</style>", unsafe_allow_html=True)
@@ -788,7 +815,7 @@ with col_logo_m:
 
 st.markdown(
     """
-    <div class="header-card" style="text-align: center; padding: 30px 20px; border-radius: 16px; margin-bottom: 25px;">
+    <div class="header-card" style="text-align: center; padding: 25px 20px; border-radius: 16px; margin-bottom: 25px;">
         <span style="background-color: #FFB703; color: #000000; padding: 6px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">
             Sugeng Rawuh Wonten ing Jateng Harvest! 🌾
         </span>
@@ -796,8 +823,7 @@ st.markdown(
             Jateng Harvest Dashboard
         </h1>
         <p style="margin: 0; color: #F8F9FA; font-size: 1.1rem; line-height: 1.6; opacity: 0.9;">
-            Badhe ngecek persiapan panen teng kecamatan pundi dinten niki?<br>
-            Aplikasi niki mbantu panjenengan ngitung kabutuhan logistik panen (karung, tenaga buruh, lan mesin) supados asil panenipun sae lan mboten rugi.
+            Cepat, mudah, dan akurat hitung kebutuhan karung, buruh, & mesin panen di wilayah Anda!
         </p>
     </div>
     """,
@@ -1063,15 +1089,22 @@ with tab_predict:
         st.markdown("<div style='margin-top: 25px;'></div>", unsafe_allow_html=True)
         st.markdown("#### 💬 Masukan Anda Sangat Berarti")
         st.caption("Apakah hasil perkiraan ini sesuai dengan kondisi lahan di daerah Anda?")
+        
+        if "feedback_submitted" not in st.session_state:
+            st.session_state.feedback_submitted = None
+            
         feed_col1, feed_col2 = st.columns(2)
         with feed_col1:
             if st.button("✔️ Ya, Sesuai", key="btn_feed_yes", use_container_width=True):
                 log_user_feedback(selected_kec, selected_kab, selected_month, manual_luas_tanam, True)
-                st.success("Maturnuwun atas masukan Anda!")
+                st.session_state.feedback_submitted = "Ya"
         with feed_col2:
             if st.button("❌ Tidak Sesuai", key="btn_feed_no", use_container_width=True):
                 log_user_feedback(selected_kec, selected_kab, selected_month, manual_luas_tanam, False)
-                st.success("Maturnuwun! Masukan Anda membantu kami menyempurnakan perhitungan.")
+                st.session_state.feedback_submitted = "Tidak"
+                
+        if st.session_state.feedback_submitted is not None:
+            st.success("🙏 Matur nuwun sanget! Masukan panjenengan sampun kami catat sebagai referensi model ke depan.")
 
 # ------------------------------------------
 # TAB 2: COMMUNITY MONITOR (AUTOMATIC HISTORICAL DATA DETECTOR)
@@ -1281,13 +1314,16 @@ with tab_education:
 # Disclaimer & Footer credit
 st.markdown("<hr style='border: 1px solid rgba(255,255,255,0.05); margin-top:40px;'>", unsafe_allow_html=True)
 
-# Admin WhatsApp Help Button (Punya Pertanyaan? Tanya ke Admin)
+# Floating WhatsApp Help Button (Punya Pertanyaan? Tanya ke Admin)
 wa_admin_text = urllib.parse.quote("Sugeng siang Admin Jateng Harvest, kula badhe takon tentang persiapan logistik panen...")
-wa_admin_url = f"https://wa.me/6285752762181?text={wa_admin_text}"
-
-col_help_l, col_help_m, col_help_r = st.columns([1, 2, 1])
-with col_help_m:
-    st.link_button("❓ Punya pertanyaan? Tanya ke admin", url=wa_admin_url, use_container_width=True)
+st.markdown(
+    f"""
+    <a href="https://wa.me/6285752762181?text={wa_admin_text}" class="floating-wa" target="_blank" title="Tanya Admin via WhatsApp">
+        💬
+    </a>
+    """,
+    unsafe_allow_html=True
+)
 
 st.markdown(
     """
