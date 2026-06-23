@@ -1410,8 +1410,9 @@ st.markdown(
 )
 st.markdown(
     """
-    <div style="text-align: center; color: #64748b; font-size: 0.85rem; padding-bottom: 20px;">
-        © 2026 Jateng Harvest Dashboard. Sistem Informasi Manajemen Logistik & Perencanaan Pertanian Jawa Tengah.
+    <div style="text-align: center; color: #64748b; font-size: 0.85rem; padding-bottom: 20px; line-height: 1.6;">
+        © 2026 Jateng Harvest Dashboard. Sistem Informasi Manajemen Logistik & Perencanaan Pertanian Jawa Tengah.<br>
+        <span style="opacity: 0.85; font-size: 0.8rem;">Pembuat Website: Krisna Akbar Widianto, Muhammad Mufrih Fawwaz, Zulhan Nugraha</span>
     </div>
     """,
     unsafe_allow_html=True
